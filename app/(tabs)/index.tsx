@@ -1,5 +1,6 @@
 "use client"
 
+import { IconSymbol } from "@/components/ui/icon-symbol"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
@@ -26,9 +27,8 @@ export default function HomeScreen() {
 
       {/* Search */}
       <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <IconSymbol name="magnifyingglass" size={18} color="#999" style={styles.searchIcon} />
         <TextInput placeholder="Search restaurants or food" placeholderTextColor="#BBB" style={styles.searchInput} />
-        <Text style={styles.filterIcon}>⚙️</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -62,10 +62,7 @@ export default function HomeScreen() {
 
         {/* Featured near you */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Featured near you</Text>
-          <TouchableOpacity>
-            <Text style={styles.sectionLink}>See all</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Featured Stalls</Text>
         </View>
 
         <View style={styles.cardList}>

@@ -36,7 +36,7 @@ export default function CartScreen() {
         contentContainerStyle={{ padding: 18 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Your Order</Text>
+        <Text style={styles.sectionTitle}>Your Cart</Text>
 
         {CART_ITEMS.map((item) => (
           <View style={styles.itemCard} key={item.id}>
