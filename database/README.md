@@ -13,12 +13,40 @@
    - Click "Run" to execute the SQL
 
 This will create:
+- `users` table for user profiles (automatically populated when users sign up)
+- `admins` table to link users to stalls (for admin access)
 - `stalls` table with all necessary columns
 - `foods` table for menu items linked to stalls
 - Indexes for performance
 - Row Level Security (RLS) policies
-- Triggers for automatic timestamp updates
+- Triggers for automatic timestamp updates and user profile creation
 - Views for public data access
+
+**Note**: The `users` table is automatically populated via a database trigger whenever a new user signs up through Supabase Auth. The trigger extracts the user's name from the signup metadata.
+
+## Setting Up Admin Access
+
+To give a user admin access to a stall (e.g., `rcfood@gmail.com` for RC FOOD STALL):
+
+1. **Create the admin table** (if not already created):
+   - Open `database/create-admin-table.sql` in this project
+   - Copy the entire contents
+   - Paste it into the Supabase SQL Editor
+   - Click "Run" to execute the SQL
+
+2. **Link the user to the stall**:
+   - Open `database/link-rcfood-admin.sql` in this project
+   - Update the email if needed (currently set to `rcfood@gmail.com`)
+   - Copy the entire contents
+   - Paste it into the Supabase SQL Editor
+   - Click "Run" to execute the SQL
+
+This will:
+- Create an admin record linking the user to RC FOOD STALL
+- Allow the user to access the admin dashboard when they log in
+- The dashboard will automatically fetch foods for that stall
+
+**Note**: The admin table allows multiple users to be admins of the same stall, and a user can be an admin of multiple stalls.
 
 ## Creating the RC FOOD STALL Account
 
@@ -34,7 +62,7 @@ This will create:
        name: 'RC FOOD STALL',
        location: 'Bonoan Building, Ateneo de Naga University',
        email: 'rcfoodstall@goldenbites.com', // Change this
-       password: 'RCFoodStall2024!', // Change this
+       password: '12345', // Change this
        phone: '+639123456789', // Optional
      };
      ```
@@ -80,7 +108,25 @@ After creating the account, you can verify it by:
    - Go to Table Editor > `stalls`
    - You should see the RC FOOD STALL record
 
-3. **Test Login**:
+3. **Confirm Email** (if needed):
+   - If you get an "email not confirmed" error when signing in, you need to confirm the email
+   - **Option A - Using Script** (requires Service Role Key):
+     ```bash
+     # Set your service role key (get it from Supabase Dashboard > Settings > API)
+     export SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+     npm run confirm-email rcfoodstall@gmail.com
+     ```
+   - **Option B - Manual Confirmation**:
+     - Go to Supabase Dashboard > Authentication > Users
+     - Find the user by email
+     - Click on the user
+     - Click "Confirm Email" button or manually set `email_confirmed_at` to current timestamp
+   - **Option C - Disable Email Confirmation** (for development):
+     - Go to Supabase Dashboard > Authentication > Settings
+     - Under "Email Auth", disable "Enable email confirmations"
+     - This allows users to sign in without confirming their email
+
+4. **Test Login**:
    - Use the email and password you set to test authentication in your app
 
 ## Adding Menu Items (Foods) to a Stall
@@ -121,6 +167,20 @@ After creating a stall, you can add menu items using the `foods` table:
    ```
 
 ## Database Schema Overview
+
+### Users Table
+- Stores user profile information
+- Automatically created when a user signs up (via database trigger)
+- Linked to `auth.users` via `id` (foreign key)
+- Contains email, name, phone, avatar_url
+- Automatically extracts name from signup metadata
+
+### Admins Table
+- Links users to stalls for admin access
+- Allows multiple users to be admins of the same stall
+- Allows a user to be an admin of multiple stalls
+- Linked to `auth.users` via `user_id` and `stalls` via `stall_id`
+- Used to determine if a user should be redirected to the admin dashboard
 
 ### Stalls Table
 - Stores stall/restaurant information

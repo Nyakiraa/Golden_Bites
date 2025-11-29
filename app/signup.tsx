@@ -1,15 +1,88 @@
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
   const [fontsLoaded] = useFonts({
     'ChunkoBoldDemo': require('@/assets/fonts/ChunkoBoldDemo.ttf'),
   });
 
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+
   if (!fontsLoaded) {
     return null;
   }
+
+  const handleSignUp = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: {
+            name: name.trim(),
+            phone: phone.trim() || null,
+          },
+        },
+      });
+
+      if (error) {
+        // Handle email signups disabled error
+        if (error.message.includes('email signups are disabled') || 
+            error.message.includes('Email signups are disabled') ||
+            error.message.includes('Signups not allowed')) {
+          Alert.alert(
+            'Sign Up Disabled',
+            'Email signups are currently disabled. Please contact support or enable email signups in Supabase settings.',
+            [
+              {
+                text: 'OK',
+                style: 'default',
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Sign Up Failed', error.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        Alert.alert(
+          'Success',
+          'Account created successfully! Please check your email to verify your account.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/signin'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -39,6 +112,9 @@ export default function SignUpScreen() {
               style={styles.inputField}
               placeholder="Name"
               placeholderTextColor="#999"
+              value={name}
+              onChangeText={setName}
+              editable={!loading}
             />
           </View>
 
@@ -49,6 +125,10 @@ export default function SignUpScreen() {
                placeholder="123@gmail.com"
                placeholderTextColor="#999"
                keyboardType="email-address"
+               autoCapitalize="none"
+               value={email}
+               onChangeText={setEmail}
+               editable={!loading}
              />
            </View>
 
@@ -59,6 +139,9 @@ export default function SignUpScreen() {
                placeholder="Password"
                placeholderTextColor="#999"
                secureTextEntry
+               value={password}
+               onChangeText={setPassword}
+               editable={!loading}
              />
            </View>
 
@@ -76,6 +159,9 @@ export default function SignUpScreen() {
                 placeholder="Phone number"
                 placeholderTextColor="#999"
                 keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+                editable={!loading}
               />
             </View>
           </View>
@@ -96,8 +182,16 @@ export default function SignUpScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.signUpButton} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.signUpButtonText}>Sign Up</Text>
+          <TouchableOpacity 
+            style={[styles.signUpButton, loading && styles.signUpButtonDisabled]} 
+            onPress={handleSignUp}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.signUpButtonText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.loginRow}>
@@ -288,6 +382,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  signUpButtonDisabled: {
+    opacity: 0.6,
   },
   loginRow: {
     flexDirection: 'row',

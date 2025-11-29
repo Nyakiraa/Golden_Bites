@@ -166,7 +166,7 @@ const rcFoodStall = {
   name: 'RC FOOD STALL',
   location: 'Bonoan Building, Ateneo de Naga University',
   email: 'rcfoodstall@gmail.com', // Change this to a valid email address
-  password: 'RCFoodStall2024!', // Change this to a secure password
+  password: '12345', // Change this to a secure password
   phone: '+639123456789', // Optional: Add actual phone number
 };
 

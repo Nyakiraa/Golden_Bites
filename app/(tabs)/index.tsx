@@ -102,10 +102,6 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.demoCartBtn} onPress={() => router.push("/cart")}>
           <Text style={styles.demoCartBtnText}>Go to Cart</Text>
         </TouchableOpacity>
-        {/* Button for Admin Dashboard navigation for testing */}
-        <TouchableOpacity style={[styles.demoCartBtn, { backgroundColor: "#000", marginTop: 12 }]} onPress={() => router.push("/admin/stall-dashboard")}>
-          <Text style={styles.demoCartBtnText}>Admin Stall Dashboard</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   )

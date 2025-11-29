@@ -1,15 +1,77 @@
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
   const [fontsLoaded] = useFonts({
     'ChunkoBoldDemo': require('@/assets/fonts/ChunkoBoldDemo.ttf'),
   });
 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
   if (!fontsLoaded) {
     return null;
   }
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        // Handle email not confirmed error
+        if (error.message.includes('email not confirmed') || error.message.includes('Email not confirmed')) {
+          Alert.alert(
+            'Email Not Confirmed',
+            'Please check your email and click the confirmation link before signing in. If you need help, contact support.',
+            [
+              {
+                text: 'OK',
+                style: 'default',
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Sign In Failed', error.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Check if user is an admin (has a record in admins table)
+        const { data: adminData, error: adminError } = await supabase
+          .from('admins')
+          .select('stall_id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (adminData && !adminError) {
+          // User is an admin, redirect to admin dashboard
+          router.replace('/admin/stall-dashboard');
+        } else {
+          // Regular user, redirect to tabs
+          router.replace('/(tabs)');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -34,8 +96,13 @@ export default function SignInScreen() {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.inputField}
-              placeholder="school ID"
+              placeholder="Email"
               placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
             />
              <View style={styles.personIcon}>
                <Image
@@ -49,9 +116,12 @@ export default function SignInScreen() {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.inputField}
-              placeholder="password"
+              placeholder="Password"
               placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
               secureTextEntry
+              editable={!loading}
             />
           </View>
 
@@ -68,8 +138,16 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.loginButtonText}>Login</Text>
+          <TouchableOpacity 
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+            onPress={handleSignIn}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.registerRow}>
@@ -246,6 +324,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   registerRow: {
     flexDirection: 'row',

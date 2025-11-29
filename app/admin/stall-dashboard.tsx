@@ -71,11 +71,33 @@ export default function StallDashboard() {
       try {
         setLoading(true)
         
-        // First, get the stall ID for RC FOOD STALL
+        // First, get the current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          console.error("Error getting user:", userError)
+          setLoading(false)
+          return
+        }
+
+        // Get the admin record for this user to find their stall_id
+        const { data: adminData, error: adminError } = await supabase
+          .from("admins")
+          .select("stall_id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+
+        if (adminError || !adminData) {
+          console.error("Error fetching admin record:", adminError)
+          setLoading(false)
+          return
+        }
+
+        // Get the stall details using the stall_id from admin record
         const { data: stallData, error: stallError } = await supabase
           .from("stalls")
-          .select("id")
-          .eq("name", "RC FOOD STALL")
+          .select("id, name, location")
+          .eq("id", adminData.stall_id)
           .single()
 
         if (stallError) {
