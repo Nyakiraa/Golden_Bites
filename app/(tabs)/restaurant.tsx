@@ -39,11 +39,28 @@ export default function RestaurantScreen() {
   const rating = Array.isArray(params.rating) ? params.rating[0] : (params.rating ?? "")
   const fee = Array.isArray(params.fee) ? params.fee[0] : (params.fee ?? "")
   const time = Array.isArray(params.time) ? params.time[0] : (params.time ?? "")
+  const LOCAL_IMAGES: Record<string, any> = {
+    "bambam.png": require("@/assets/images/bambam.png"),
+    "puting_bahay.png": require("@/assets/images/puting_bahay.png"),
+    "RC.png": require("@/assets/images/RC.png"),
+    "NOMO.png": require("@/assets/images/NOMO.png"),
+    "noodle_house.png": require("@/assets/images/noodle_house.png"),
+    "kuya_platter.png": require("@/assets/images/kuya_platter.png"),
+    "cocina.png": require("@/assets/images/cocina.png"),
+    "JBI.png": require("@/assets/images/JBI.png"),
+    "kuyakim.png": require("@/assets/images/kuyakim.png"),
+    "taptap.png": require("@/assets/images/taptap.png"),
+    "flavorful_fiesta.png": require("@/assets/images/flavorful_fiesta.png"),
+    "bitebox.png": require("@/assets/images/bitebox.png"),
+  }
+
+  const resolvedImage = LOCAL_IMAGES[image] ?? (String(image).startsWith("http") ? { uri: String(image) } : undefined)
+
   return (
     <ScrollView style={{ backgroundColor: "#FFFFFF" }}>
       {/* Restaurant Banner */}
       <View style={{ position: "relative", width: "100%", height: 180 }}>
-        <Image source={{ uri: String(image) }} style={{ width: "100%", height: "100%" }} />
+        <Image source={resolvedImage} style={{ width: "100%", height: "100%" }} />
         <View style={styles.bannerOverlay} />
         <View style={styles.bannerTextWrap}>
           <Text style={styles.restaurantName}>{String(name)}</Text>

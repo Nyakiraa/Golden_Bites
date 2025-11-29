@@ -20,6 +20,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'cart.fill': 'shopping-cart',
   'heart.fill': 'favorite',
+  'magnifyingglass': 'search',
 } as IconMapping;
 
 /**

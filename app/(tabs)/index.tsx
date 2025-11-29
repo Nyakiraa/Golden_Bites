@@ -1,5 +1,6 @@
 "use client"
 
+import { IconSymbol } from "@/components/ui/icon-symbol"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
@@ -26,9 +27,8 @@ export default function HomeScreen() {
 
       {/* Search */}
       <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <IconSymbol name="magnifyingglass" size={18} color="#999" style={styles.searchIcon} />
         <TextInput placeholder="Search restaurants or food" placeholderTextColor="#BBB" style={styles.searchInput} />
-        <Text style={styles.filterIcon}>⚙️</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -62,10 +62,7 @@ export default function HomeScreen() {
 
         {/* Featured near you */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Featured near you</Text>
-          <TouchableOpacity>
-            <Text style={styles.sectionLink}>See all</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Featured Stalls</Text>
         </View>
 
         <View style={styles.cardList}>
@@ -76,7 +73,10 @@ export default function HomeScreen() {
               activeOpacity={0.85}
               onPress={() => router.push({ pathname: "/restaurant", params: r })}
             >
-              <Image source={{ uri: r.image }} style={styles.cardImage} />
+              <Image
+                source={LOCAL_IMAGES[r.image] ?? (typeof r.image === "string" && r.image.startsWith("http") ? { uri: r.image } : undefined)}
+                style={styles.cardImage}
+              />
               {r.tag && (
                 <View style={styles.offerTag}>
                   <Text style={styles.offerText}>{r.tag}</Text>
@@ -113,6 +113,21 @@ export default function HomeScreen() {
 
 const YELLOW_DARK = "#F2BC2B"
 
+const LOCAL_IMAGES: Record<string, any> = {
+  "bambam.png": require("@/assets/images/bambam.png"),
+  "puting_bahay.png": require("@/assets/images/puting_bahay.png"),
+  "RC.png": require("@/assets/images/RC.png"),
+  "NOMO.png": require("@/assets/images/NOMO.png"),
+  "noodle_house.png": require("@/assets/images/noodle_house.png"),
+  "kuya_platter.png": require("@/assets/images/kuya_platter.png"),
+  "cocina.png": require("@/assets/images/cocina.png"),
+  "JBI.png": require("@/assets/images/JBI.png"),
+  "kuyakim.png": require("@/assets/images/kuyakim.png"),
+  "taptap.png": require("@/assets/images/taptap.png"),
+  "flavorful_fiesta.png": require("@/assets/images/flavorful_fiesta.png"),
+  "bitebox.png": require("@/assets/images/bitebox.png"),
+}
+
 const POPULAR_MEALS = [
   {
     id: "pm1",
@@ -147,123 +162,123 @@ const POPULAR_MEALS = [
 const MOCK_RESTAURANTS = [
   {
     id: "1",
-    name: "Campus Chicken + Rice",
+    name: "Bam Bam's",
     rating: 4.6,
     time: 25,
     fee: 19,
     cuisines: ["Filipino", "Fast Food"],
     tag: "20% OFF",
-    image: "https://images.unsplash.com/photo-1604908554007-087452255c05?w=1200&q=80&auto=format&fit=crop",
+    image: "bambam.png",
   },
   {
     id: "2",
-    name: "Brewed Better Café",
+    name: "Puting Bahay Eatery",
     rating: 4.8,
     time: 18,
     fee: 15,
-    cuisines: ["Coffee", "Bakery"],
+    cuisines: ["Home-Cooked", "Filipino"],
     tag: "BUY 1 GET 1",
-    image: "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?w=1200&q=80&auto=format&fit=crop",
+    image: "puting_bahay.png",
   },
   {
     id: "3",
-    name: "Noodle Hut",
+    name: "RC Food Stall",
     rating: 4.5,
     time: 30,
     fee: 25,
-    cuisines: ["Asian", "Noodles"],
+    cuisines: ["Street Food", "Filipino"],
     tag: "",
-    image: "https://images.unsplash.com/photo-1542442828-2872197443a5?w=1200&q=80&auto=format&fit=crop",
+    image: "RC.png",
   },
   {
     id: "4",
-    name: "Sari-Sari Silog Stop",
+    name: "NOMO House of Sizzlers",
     rating: 4.7,
     time: 16,
     fee: 10,
-    cuisines: ["Filipino", "Breakfast"],
+    cuisines: ["Grill", "Sizzlers"],
     tag: "FREE DRINK",
-    image: "https://images.unsplash.com/photo-1543332164-6e82f355bad1?w=1200&q=80&auto=format&fit=crop",
+    image: "NOMO.png",
   },
   {
     id: "5",
-    name: "MilkTea Republic",
+    name: "Noodle House",
     rating: 4.8,
     time: 14,
     fee: 12,
-    cuisines: ["Milk Tea", "Snacks"],
+    cuisines: ["Asian", "Noodles"],
     tag: "BUY 2 GET 1",
-    image: "https://images.unsplash.com/photo-1587731457469-204045b8e6df?w=1200&q=80&auto=format&fit=crop",
+    image: "noodle_house.png",
   },
   {
     id: "6",
-    name: "Campus Pizza Co.",
+    name: "Kuya's Platter",
     rating: 4.4,
     time: 28,
     fee: 20,
-    cuisines: ["Pizza", "Italian"],
+    cuisines: ["Filipino", "Plates"],
     tag: "",
-    image: "https://images.unsplash.com/photo-1601924638867-3ec2c7f41ced?w=1200&q=80&auto=format&fit=crop",
+    image: "kuya_platter.png",
   },
   {
     id: "7",
-    name: "Ramen Garage",
+    name: "Cocina Grill and Restaurant",
     rating: 4.7,
     time: 26,
     fee: 22,
-    cuisines: ["Japanese", "Ramen"],
+    cuisines: ["Grill", "International"],
     tag: "10% OFF",
-    image: "https://images.unsplash.com/photo-1575024357670-2b5164abf54d?w=1200&q=80&auto=format&fit=crop",
+    image: "cocina.png",
   },
   {
     id: "8",
-    name: "Lola's Lutong-Bahay",
+    name: "JBI Food Stop",
     rating: 4.9,
     time: 20,
     fee: 10,
-    cuisines: ["Home-Cooked", "Filipino"],
+    cuisines: ["Snacks", "Fast Food"],
     tag: "BEST SELLER",
-    image: "https://images.unsplash.com/photo-1604908174781-51e76dce2445?w=1200&q=80&auto=format&fit=crop",
+    image: "JBI.png",
   },
   {
     id: "9",
-    name: "Burger Lab PH",
+    name: "Kuya Kim Cuisine",
     rating: 4.5,
     time: 22,
     fee: 18,
-    cuisines: ["Burgers", "Fries"],
+    cuisines: ["Filipino", "Comfort"],
     tag: "",
-    image: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1200&q=80&auto=format&fit=crop",
+    image: "kuyakim.png",
   },
   {
     id: "10",
-    name: "Healthy Bowls Hub",
+    name: "Tap Tap",
     rating: 4.6,
     time: 15,
     fee: 8,
-    cuisines: ["Healthy", "Salads"],
+    cuisines: ["Street Food", "Snacks"],
     tag: "FREE DELIVERY",
-    image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&q=80&auto=format&fit=crop",
+    image: "taptap.png",
   },
   {
     id: "11",
-    name: "Street K-BBQ Express",
+    name: "Flavorful Fiesta",
     rating: 4.8,
     time: 24,
     fee: 20,
-    cuisines: ["Korean", "BBQ"],
+    cuisines: ["Fiesta", "Party"],
     tag: "",
-    image: "https://images.unsplash.com/photo-1598514982849-e25b7d3ad793?w=1200&q=80&auto=format&fit=crop",
+    image: "flavorful_fiesta.png",
   },
   {
     id: "12",
-    name: "Pasta Corner",
+    name: "Bite Box",
     rating: 4.4,
     time: 27,
     fee: 18,
-    cuisines: ["Italian", "Pasta"],
+    cuisines: ["Meals", "Drinks"],
     tag: "15% OFF",
-    image: "https://images.unsplash.com/photo-1521389508051-d7ffb5dc8c1b?w=1200&q=80&auto=format&fit=crop",
+    image: "bitebox.png",
   },
 ]
 
