@@ -1,21 +1,121 @@
 "use client"
 
 import { useRouter } from "expo-router"
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useState } from "react"
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { supabase } from "@/lib/supabase"
 
 const YELLOW_LIGHT = "#F8DF86"
 const YELLOW_DARK = "#F2BC2B"
 
+// TODO: Replace with real cart data from context/state management
 const CART_ITEMS = [
-  { id: "fd1", name: "Chicken Fillet Rice Bowl", qty: 2, price: 99 },
-  { id: "fd3", name: "Iced Caramel Latte", qty: 1, price: 95 },
+  { id: "fd1", name: "Chicken Fillet Rice Bowl", qty: 2, price: 99, food_id: null as string | null }, // food_id will be set from database
+  { id: "fd3", name: "Iced Caramel Latte", qty: 1, price: 95, food_id: null as string | null },
 ]
+
+// TODO: Get this from route params or cart context
+const STALL_ID = null as string | null // Will be set from route params or cart
 
 export default function CheckoutScreen() {
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
   const subtotal = CART_ITEMS.reduce((sum, i) => sum + i.price * i.qty, 0)
   const deliveryFee = 25
   const total = subtotal + deliveryFee
+
+  const handlePlaceOrder = async () => {
+    try {
+      setLoading(true)
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) {
+        Alert.alert("Error", "Please sign in to place an order")
+        return
+      }
+
+      // TODO: Get stall_id from cart context or route params
+      // For now, we'll try to find RC FOOD STALL as a default
+      let stallId = STALL_ID
+      if (!stallId) {
+        const { data: stallData } = await supabase
+          .from("stalls")
+          .select("id")
+          .eq("name", "RC FOOD STALL")
+          .eq("is_active", true)
+          .single()
+        
+        if (!stallData) {
+          Alert.alert("Error", "Stall not found. Please try again.")
+          return
+        }
+        stallId = stallData.id
+      }
+
+      // Generate order number
+      const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
+
+      // Create order
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          stall_id: stallId,
+          order_number: orderNumber,
+          status: "pending",
+          delivery_address: "ADNU Campus, Naga City",
+          subtotal: subtotal,
+          delivery_fee: deliveryFee,
+          total: total,
+        })
+        .select()
+        .single()
+
+      if (orderError || !orderData) {
+        console.error("Error creating order:", orderError)
+        Alert.alert("Error", "Failed to create order. Please try again.")
+        return
+      }
+
+      // Create order items
+      // TODO: Map cart items to actual food_ids from database
+      // For now, we'll create order items with the cart data
+      // In a real implementation, you'd fetch food_ids based on the cart items
+      const orderItems = CART_ITEMS.map(item => ({
+        order_id: orderData.id,
+        food_id: item.food_id || "00000000-0000-0000-0000-000000000000", // Placeholder - should be real food_id
+        quantity: item.qty,
+        price: item.price,
+        subtotal: item.price * item.qty,
+      }))
+
+      // If we have real food_ids, insert order items
+      // For now, we'll skip this if food_ids are not available
+      if (orderItems.some(item => item.food_id !== "00000000-0000-0000-0000-000000000000")) {
+        const { error: itemsError } = await supabase
+          .from("order_items")
+          .insert(orderItems)
+
+        if (itemsError) {
+          console.error("Error creating order items:", itemsError)
+          // Continue anyway - order is created
+        }
+      }
+
+      // Navigate to confirmation
+      router.replace({
+        pathname: "/order-confirmation",
+        params: { orderNumber: orderNumber }
+      })
+    } catch (error: any) {
+      console.error("Error in handlePlaceOrder:", error)
+      Alert.alert("Error", error.message || "An unexpected error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <View style={styles.bg}>
@@ -58,8 +158,12 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
       <View style={styles.footerSticky}>
-        <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.replace("/order-confirmation")}>
-          <Text style={styles.checkoutBtnText}>Place Order</Text>
+        <TouchableOpacity 
+          style={[styles.checkoutBtn, loading && styles.checkoutBtnDisabled]} 
+          onPress={handlePlaceOrder}
+          disabled={loading}
+        >
+          <Text style={styles.checkoutBtnText}>{loading ? "Placing Order..." : "Place Order"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -182,5 +286,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: 0.5,
     textTransform: "uppercase",
+  },
+  checkoutBtnDisabled: {
+    opacity: 0.6,
   },
 })

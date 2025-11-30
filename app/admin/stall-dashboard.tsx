@@ -4,7 +4,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { supabase } from "@/lib/supabase"
 
@@ -19,6 +19,28 @@ interface FoodItem {
   display_order: number | null
 }
 
+interface Order {
+  id: string
+  order_number: string
+  status: string
+  total: number
+  delivery_address: string | null
+  created_at: string
+  order_items?: OrderItem[]
+}
+
+interface OrderItem {
+  id: string
+  food_id: string
+  quantity: number
+  price: number
+  subtotal: number
+  foods?: {
+    name: string
+    image_url: string | null
+  }
+}
+
 export default function StallDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<"home" | "orders" | "summary" | "sales">("home")
@@ -26,44 +48,14 @@ export default function StallDashboard() {
   const [stallId, setStallId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Dummy data for RC FOOD STALL
-  const stallData = {
-    name: "RC FOOD STALL",
-    location: "Bonoan Building, Ateneo de Naga University",
-    runningOrders: 10,
-    orderRequests: 5,
-    rating: 4.9,
-    totalReviews: 20,
-    popularItems: [
-      {
-        id: "1",
-        name: "Pancakes",
-        image: "https://images.unsplash.com/photo-1528207776546-365bb710ee93?w=200&q=80&auto=format&fit=crop",
-      },
-      {
-        id: "2",
-        name: "Lumpia",
-        image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=200&q=80&auto=format&fit=crop",
-      },
-      {
-        id: "3",
-        name: "Waffles",
-        image: "https://images.unsplash.com/photo-1562376552-0d160a2f238d?w=200&q=80&auto=format&fit=crop",
-      },
-    ],
-    runningOrdersList: [
-      { id: "S3150", name: "Pancake", price: 20.0, image: null },
-      { id: "F3420", name: "Waffle", price: 20.0, image: null },
-      { id: "F2014", name: "Lumpiang Shanghai", price: 20.0, image: null },
-      { id: "F5324", name: "Waffle", price: 20.0, image: null },
-      { id: "S8724", name: "Waffle", price: 20.0, image: null },
-      { id: "F1234", name: "Pancake", price: 20.0, image: null },
-      { id: "S5678", name: "Lumpiang Shanghai", price: 20.0, image: null },
-      { id: "F9012", name: "Waffle", price: 20.0, image: null },
-      { id: "S3456", name: "Pancake", price: 20.0, image: null },
-      { id: "F7890", name: "Lumpiang Shanghai", price: 20.0, image: null },
-    ],
-  }
+  const [stallName, setStallName] = useState("RC FOOD STALL")
+  const [stallLocation, setStallLocation] = useState("Bonoan Building, Ateneo de Naga University")
+  const [runningOrders, setRunningOrders] = useState(0)
+  const [orderRequests, setOrderRequests] = useState(0)
+  const [rating, setRating] = useState(4.9)
+  const [totalReviews, setTotalReviews] = useState(20)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
 
   // Fetch stall ID and foods function
   const fetchStallAndFoods = useCallback(async () => {
@@ -107,6 +99,8 @@ export default function StallDashboard() {
 
       if (stallData) {
         setStallId(stallData.id)
+        setStallName(stallData.name || "RC FOOD STALL")
+        setStallLocation(stallData.location || "Bonoan Building, Ateneo de Naga University")
 
         // Then fetch foods for this stall
         const { data: foodsData, error: foodsError } = await supabase
@@ -122,6 +116,9 @@ export default function StallDashboard() {
         } else {
           setFoods(foodsData || [])
         }
+
+        // Fetch orders for this stall
+        await fetchOrders(stallData.id)
       }
     } catch (error) {
       console.error("Error in fetchStallAndFoods:", error)
@@ -139,13 +136,106 @@ export default function StallDashboard() {
   useFocusEffect(
     useCallback(() => {
       fetchStallAndFoods()
-    }, [fetchStallAndFoods])
+      if (stallId && activeTab === "orders") {
+        fetchOrders(stallId)
+      }
+    }, [fetchStallAndFoods, stallId, activeTab, fetchOrders])
   )
 
-  const handleOrderAction = (orderId: string, action: "done" | "cancel") => {
-    // Handle order action (done or cancel)
-    console.log(`Order ${orderId}: ${action}`)
-    // You can add logic here to update orders, remove from list, etc.
+  // Refresh orders when switching to orders tab
+  useEffect(() => {
+    if (activeTab === "orders" && stallId) {
+      fetchOrders(stallId)
+    }
+  }, [activeTab, stallId, fetchOrders])
+
+  // Fetch orders for the stall
+  const fetchOrders = useCallback(async (stallIdParam: string) => {
+    try {
+      setOrdersLoading(true)
+
+      // Fetch orders with order items and food details
+      const { data: ordersData, error: ordersError } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          order_number,
+          status,
+          total,
+          delivery_address,
+          created_at,
+          order_items (
+            id,
+            food_id,
+            quantity,
+            price,
+            subtotal,
+            foods (
+              name,
+              image_url
+            )
+          )
+        `)
+        .eq("stall_id", stallIdParam)
+        .in("status", ["pending", "confirmed", "preparing", "ready"])
+        .order("created_at", { ascending: false })
+
+      if (ordersError) {
+        console.error("Error fetching orders:", ordersError)
+        setOrders([])
+        setRunningOrders(0)
+        setOrderRequests(0)
+        return
+      }
+
+      setOrders(ordersData || [])
+      
+      // Count orders by status
+      const pendingCount = (ordersData || []).filter(o => o.status === "pending").length
+      const runningCount = (ordersData || []).filter(o => 
+        ["confirmed", "preparing", "ready"].includes(o.status)
+      ).length
+
+      setOrderRequests(pendingCount)
+      setRunningOrders(runningCount)
+    } catch (error) {
+      console.error("Error in fetchOrders:", error)
+      setOrders([])
+      setRunningOrders(0)
+      setOrderRequests(0)
+    } finally {
+      setOrdersLoading(false)
+    }
+  }, [])
+
+  const handleOrderAction = async (orderId: string, action: "done" | "cancel") => {
+    try {
+      let newStatus: string
+      if (action === "done") {
+        newStatus = "completed"
+      } else {
+        newStatus = "cancelled"
+      }
+
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus })
+        .eq("id", orderId)
+
+      if (error) {
+        console.error("Error updating order:", error)
+        Alert.alert("Error", "Failed to update order")
+        return
+      }
+
+      // Refresh orders
+      if (stallId) {
+        await fetchOrders(stallId)
+      }
+    } catch (error) {
+      console.error("Error in handleOrderAction:", error)
+      Alert.alert("Error", "An unexpected error occurred")
+    }
   }
 
   const renderHomeView = () => (
@@ -153,11 +243,11 @@ export default function StallDashboard() {
         {/* Order Status Cards */}
         <View style={styles.orderCardsContainer}>
           <View style={styles.orderCard}>
-            <Text style={styles.orderNumber}>{stallData.runningOrders}</Text>
+            <Text style={styles.orderNumber}>{runningOrders}</Text>
             <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
           </View>
           <View style={styles.orderCard}>
-            <Text style={styles.orderNumber}>{stallData.orderRequests}</Text>
+            <Text style={styles.orderNumber}>{orderRequests}</Text>
             <Text style={styles.orderLabel}>ORDER REQUEST</Text>
           </View>
         </View>
@@ -172,8 +262,8 @@ export default function StallDashboard() {
           </View>
           <View style={styles.reviewsRight}>
             <MaterialIcons name="star" size={32} color={YELLOW_DARK} />
-            <Text style={styles.ratingNumber}>{stallData.rating}</Text>
-            <Text style={styles.totalReviewsText}>Total of {stallData.totalReviews} Reviews</Text>
+            <Text style={styles.ratingNumber}>{rating}</Text>
+            <Text style={styles.totalReviewsText}>Total of {totalReviews} Reviews</Text>
           </View>
         </View>
 
@@ -184,7 +274,7 @@ export default function StallDashboard() {
               <Text style={styles.menusTitle}>Menus</Text>
               <Text style={styles.menusCount}>{foods.length} {foods.length === 1 ? "Item" : "Items"}</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/manage-menu")}>
               <Text style={styles.seeAllLink}>Manage</Text>
             </TouchableOpacity>
           </View>
@@ -238,21 +328,29 @@ export default function StallDashboard() {
         </View>
 
         {/* Popular Items Section */}
-        <View style={styles.popularItemsCard}>
-          <View style={styles.popularItemsHeader}>
-            <Text style={styles.popularItemsTitle}>Popular Items this Week</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllLink}>See All</Text>
-            </TouchableOpacity>
+        {foods.length > 0 && (
+          <View style={styles.popularItemsCard}>
+            <View style={styles.popularItemsHeader}>
+              <Text style={styles.popularItemsTitle}>Popular Items this Week</Text>
+              <TouchableOpacity>
+                <Text style={styles.seeAllLink}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.popularItemsList}>
+              {foods.slice(0, 3).map((item) => (
+                <View key={item.id} style={styles.popularItem}>
+                  {item.image_url ? (
+                    <Image source={{ uri: item.image_url }} style={styles.popularItemImage} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.popularItemImage, { backgroundColor: "#F5F5F5", alignItems: "center", justifyContent: "center" }]}>
+                      <MaterialIcons name="restaurant" size={32} color="#E0E0E0" />
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.popularItemsList}>
-            {stallData.popularItems.map((item) => (
-              <View key={item.id} style={styles.popularItem}>
-                <Image source={{ uri: item.image }} style={styles.popularItemImage} contentFit="cover" />
-              </View>
-            ))}
-          </View>
-        </View>
+        )}
       </ScrollView>
   )
 
@@ -261,40 +359,94 @@ export default function StallDashboard() {
       {/* Orders Panel */}
       <View style={styles.ordersPanel}>
         <View style={styles.ordersPanelHandle} />
-        <Text style={styles.ordersPanelTitle}>{stallData.runningOrders} Running Orders</Text>
+        <Text style={styles.ordersPanelTitle}>
+          {runningOrders + orderRequests} {runningOrders + orderRequests === 1 ? "Order" : "Orders"}
+        </Text>
         <ScrollView style={styles.ordersList} showsVerticalScrollIndicator={false}>
-          {stallData.runningOrdersList.map((order) => (
-            <View key={order.id} style={styles.orderItem}>
-              <View style={styles.orderItemImage}>
-                {order.image ? (
-                  <Image source={{ uri: order.image }} style={styles.orderImage} contentFit="cover" />
-                ) : (
-                  <View style={styles.orderImagePlaceholder}>
-                    <MaterialIcons name="image" size={24} color="#E0E0E0" />
+          {ordersLoading ? (
+            <View style={styles.emptyOrdersContainer}>
+              <ActivityIndicator size="large" color={YELLOW_DARK} />
+              <Text style={styles.emptyOrdersText}>Loading orders...</Text>
+            </View>
+          ) : orders.length === 0 ? (
+            <View style={styles.emptyOrdersContainer}>
+              <MaterialIcons name="shopping-cart" size={64} color="#E0E0E0" />
+              <Text style={styles.emptyOrdersText}>No orders yet</Text>
+              <Text style={styles.emptyOrdersSubtext}>Orders from customers will appear here</Text>
+            </View>
+          ) : (
+            orders.map((order) => (
+              <View key={order.id} style={styles.orderItem}>
+                <View style={styles.orderItemHeader}>
+                  <View style={styles.orderItemHeaderLeft}>
+                    <Text style={styles.orderItemNumber}>{order.order_number}</Text>
+                    <View style={[styles.statusBadge, order.status === "pending" && styles.statusBadgePending]}>
+                      <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.orderItemTime}>
+                    {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+                
+                {order.order_items && order.order_items.length > 0 && (
+                  <View style={styles.orderItemsList}>
+                    {order.order_items.map((item) => (
+                      <View key={item.id} style={styles.orderItemRow}>
+                        <View style={styles.orderItemImage}>
+                          {item.foods?.image_url ? (
+                            <Image source={{ uri: item.foods.image_url }} style={styles.orderImage} contentFit="cover" />
+                          ) : (
+                            <View style={styles.orderImagePlaceholder}>
+                              <MaterialIcons name="restaurant" size={24} color="#E0E0E0" />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.orderItemInfo}>
+                          <Text style={styles.orderItemName}>
+                            {item.foods?.name || "Unknown Item"}
+                          </Text>
+                          <Text style={styles.orderItemQty}>Qty: {item.quantity}</Text>
+                          <Text style={styles.orderItemPrice}>₱{Number(item.subtotal).toFixed(2)}</Text>
+                        </View>
+                      </View>
+                    ))}
                   </View>
                 )}
+
+                {order.delivery_address && (
+                  <View style={styles.orderAddress}>
+                    <MaterialIcons name="location-on" size={16} color="#666" />
+                    <Text style={styles.orderAddressText}>{order.delivery_address}</Text>
+                  </View>
+                )}
+
+                <View style={styles.orderItemFooter}>
+                  <Text style={styles.orderTotal}>Total: ₱{Number(order.total).toFixed(2)}</Text>
+                  <View style={styles.orderItemActions}>
+                    {order.status !== "completed" && order.status !== "cancelled" && (
+                      <>
+                        <TouchableOpacity
+                          style={styles.doneButton}
+                          onPress={() => handleOrderAction(order.id, "done")}
+                        >
+                          <Text style={styles.doneButtonText}>
+                            {order.status === "ready" ? "Complete" : "Mark Ready"}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={() => handleOrderAction(order.id, "cancel")}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </View>
               </View>
-              <View style={styles.orderItemInfo}>
-                <Text style={styles.orderItemName}>{order.name}</Text>
-                <Text style={styles.orderItemId}>ID: {order.id}</Text>
-                <Text style={styles.orderItemPrice}>P {order.price.toFixed(2)}</Text>
-              </View>
-              <View style={styles.orderItemActions}>
-                <TouchableOpacity
-                  style={styles.doneButton}
-                  onPress={() => handleOrderAction(order.id, "done")}
-                >
-                  <Text style={styles.doneButtonText}>Done</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => handleOrderAction(order.id, "cancel")}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </ScrollView>
       </View>
     </View>
@@ -310,12 +462,12 @@ export default function StallDashboard() {
 
         <View style={styles.headerInfo}>
           <Text style={[styles.stallName, activeTab === "orders" && styles.stallNameOrders]}>
-            {stallData.name}
+            {stallName}
           </Text>
           {activeTab === "home" && (
             <View style={styles.locationRow}>
               <MaterialIcons name="location-on" size={16} color="#999" />
-              <Text style={styles.locationText}>{stallData.location}</Text>
+              <Text style={styles.locationText}>{stallLocation}</Text>
             </View>
           )}
         </View>
@@ -345,9 +497,9 @@ export default function StallDashboard() {
         <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab("orders")}>
           <View style={[styles.navIcon, activeTab === "orders" && styles.navIconActive]}>
             <MaterialIcons name="list" size={24} color={activeTab === "orders" ? "#FFFFFF" : "#999"} />
-            {activeTab !== "orders" && (
+            {activeTab !== "orders" && runningOrders > 0 && (
               <View style={styles.ordersBadge}>
-                <Text style={styles.ordersBadgeText}>{stallData.runningOrders}</Text>
+                <Text style={styles.ordersBadgeText}>{runningOrders}</Text>
               </View>
             )}
           </View>
@@ -869,5 +1021,125 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 14,
     fontWeight: "700",
+  },
+  emptyOrdersContainer: {
+    paddingVertical: 80,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  emptyOrdersText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#666",
+    marginTop: 16,
+  },
+  emptyOrdersSubtext: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#999",
+    textAlign: "center",
+  },
+  comingSoonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  orderItem: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  orderItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  orderItemHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  orderItemNumber: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  statusBadge: {
+    backgroundColor: YELLOW_DARK,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgePending: {
+    backgroundColor: "#FF9800",
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  orderItemTime: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#666",
+  },
+  orderItemsList: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  orderItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  orderItemInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  orderItemQty: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#666",
+  },
+  orderAddress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F5F5F5",
+  },
+  orderAddressText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#666",
+    flex: 1,
+  },
+  orderItemFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F5F5F5",
+  },
+  orderTotal: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: YELLOW_DARK,
   },
 })

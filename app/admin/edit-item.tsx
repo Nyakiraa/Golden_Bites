@@ -3,7 +3,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import * as ImagePicker from "expo-image-picker"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -13,8 +13,11 @@ const YELLOW_DARK = "#F2BC2B"
 const YELLOW_BG = "#FFF9E6"
 const CREAM_BG = "#FFFEF5"
 
-export default function AddItemScreen() {
+export default function EditItemScreen() {
   const router = useRouter()
+  const params = useLocalSearchParams()
+  const itemId = params.id as string
+
   const [itemName, setItemName] = useState("")
   const [price, setPrice] = useState("")
   const [description, setDescription] = useState("")
@@ -23,16 +26,20 @@ export default function AddItemScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null)
   const [stallId, setStallId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [fetching, setFetching] = useState(true)
 
-  // Fetch stall ID on mount
+  // Fetch item data on mount
   useEffect(() => {
-    const fetchStallId = async () => {
+    const fetchItem = async () => {
       try {
+        setFetching(true)
+        
         const { data: { user }, error: userError } = await supabase.auth.getUser()
         
         if (userError || !user) {
           console.error("Error getting user:", userError)
+          Alert.alert("Error", "Failed to authenticate")
+          router.back()
           return
         }
 
@@ -45,24 +52,50 @@ export default function AddItemScreen() {
         if (adminData && !adminError) {
           setStallId(adminData.stall_id)
         }
+
+        // Fetch the item
+        const { data: itemData, error: itemError } = await supabase
+          .from("foods")
+          .select("*")
+          .eq("id", itemId)
+          .single()
+
+        if (itemError || !itemData) {
+          console.error("Error fetching item:", itemError)
+          Alert.alert("Error", "Failed to load item")
+          router.back()
+          return
+        }
+
+        // Populate form
+        setItemName(itemData.name || "")
+        setPrice(itemData.price?.toString() || "")
+        setDescription(itemData.description || "")
+        setCategory(itemData.category || "")
+        setImageUrl(itemData.image_url || "")
+        setImageUri(itemData.image_url || null)
       } catch (error) {
-        console.error("Error fetching stall ID:", error)
+        console.error("Error in fetchItem:", error)
+        Alert.alert("Error", "An unexpected error occurred")
+        router.back()
+      } finally {
+        setFetching(false)
       }
     }
 
-    fetchStallId()
-  }, [])
+    if (itemId) {
+      fetchItem()
+    }
+  }, [itemId, router])
 
   const pickImage = async (isMain: boolean = true) => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== "granted") {
         Alert.alert("Permission needed", "Sorry, we need camera roll permissions to upload images!")
         return
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -74,8 +107,6 @@ export default function AddItemScreen() {
         const asset = result.assets[0]
         if (isMain) {
           setImageUri(asset.uri)
-          // For now, we'll use the local URI. In production, you'd upload to Supabase Storage
-          // For simplicity, we'll just use the URI directly (works for local testing)
           setImageUrl(asset.uri)
         }
       }
@@ -85,7 +116,7 @@ export default function AddItemScreen() {
     }
   }
 
-  const handleSave = async () => {
+  const handleUpdate = async () => {
     if (!itemName.trim()) {
       Alert.alert("Error", "Please enter an item name")
       return
@@ -111,39 +142,45 @@ export default function AddItemScreen() {
     try {
       const { data, error } = await supabase
         .from("foods")
-        .insert([
-          {
-            stall_id: stallId,
-            name: itemName.trim(),
-            description: description.trim() || null,
-            price: priceNum,
-            image_url: imageUrl.trim() || null,
-            category: category.trim() || null,
-            is_available: true,
-            display_order: null,
-          },
-        ])
+        .update({
+          name: itemName.trim(),
+          description: description.trim() || null,
+          price: priceNum,
+          image_url: imageUrl.trim() || null,
+          category: category.trim() || null,
+        })
+        .eq("id", itemId)
         .select()
         .single()
 
       if (error) {
-        console.error("Error adding food item:", error)
-        Alert.alert("Error", `Failed to add item: ${error.message}`)
+        console.error("Error updating food item:", error)
+        Alert.alert("Error", `Failed to update item: ${error.message}`)
         return
       }
 
-      Alert.alert("Success", "Item added successfully!", [
+      Alert.alert("Success", "Item updated successfully!", [
         {
           text: "OK",
           onPress: () => router.back(),
         },
       ])
     } catch (error: any) {
-      console.error("Error in handleSave:", error)
+      console.error("Error in handleUpdate:", error)
       Alert.alert("Error", error.message || "An unexpected error occurred")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (fetching) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading item...</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
@@ -153,18 +190,12 @@ export default function AddItemScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>RC FOOD STALL</Text>
-        <View style={styles.headerIcon}>
-          <Image
-            source={require("@/assets/images/RC.png")}
-            style={styles.stallIcon}
-            contentFit="contain"
-          />
-        </View>
+        <Text style={styles.headerTitle}>Edit Item</Text>
+        <View style={styles.headerIcon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Add New Items</Text>
+        <Text style={styles.title}>Edit Menu Item</Text>
 
         {/* Item Name */}
         <View style={styles.inputGroup}>
@@ -186,7 +217,7 @@ export default function AddItemScreen() {
             <TouchableOpacity 
               style={styles.mainUploadBox} 
               onPress={() => pickImage(true)}
-              disabled={loading || uploading}
+              disabled={loading}
             >
               {imageUri || imageUrl ? (
                 <Image 
@@ -204,7 +235,7 @@ export default function AddItemScreen() {
               <TouchableOpacity 
                 style={styles.sideUploadBox}
                 onPress={() => pickImage(false)}
-                disabled={loading || uploading}
+                disabled={loading}
               >
                 <MaterialIcons name="cloud-upload" size={24} color="#999" />
                 <Text style={styles.uploadText}>Add</Text>
@@ -212,7 +243,7 @@ export default function AddItemScreen() {
               <TouchableOpacity 
                 style={styles.sideUploadBox}
                 onPress={() => pickImage(false)}
-                disabled={loading || uploading}
+                disabled={loading}
               >
                 <MaterialIcons name="cloud-upload" size={24} color="#999" />
                 <Text style={styles.uploadText}>Add</Text>
@@ -225,7 +256,7 @@ export default function AddItemScreen() {
             placeholderTextColor="#999"
             value={imageUrl}
             onChangeText={setImageUrl}
-            editable={!loading && !uploading}
+            editable={!loading}
             keyboardType="url"
             autoCapitalize="none"
           />
@@ -276,13 +307,13 @@ export default function AddItemScreen() {
           </View>
         </View>
 
-        {/* Save Button */}
+        {/* Update Button */}
         <TouchableOpacity
           style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
+          onPress={handleUpdate}
           disabled={loading}
         >
-          <Text style={styles.saveButtonText}>{loading ? "Saving..." : "Save Item"}</Text>
+          <Text style={styles.saveButtonText}>{loading ? "Updating..." : "Update Item"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -317,13 +348,6 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stallIcon: {
-    width: 32,
-    height: 32,
   },
   scrollContent: {
     paddingHorizontal: 18,
@@ -335,6 +359,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#000000",
     marginBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#666",
   },
   inputGroup: {
     marginBottom: 24,
