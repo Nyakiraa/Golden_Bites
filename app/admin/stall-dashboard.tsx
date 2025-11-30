@@ -4,7 +4,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { supabase } from "@/lib/supabase"
 
@@ -56,6 +56,7 @@ export default function StallDashboard() {
   const [totalReviews, setTotalReviews] = useState(20)
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   // Fetch stall ID and foods function
   const fetchStallAndFoods = useCallback(async () => {
@@ -207,6 +208,40 @@ export default function StallDashboard() {
       setOrdersLoading(false)
     }
   }, [])
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => setShowUserMenu(false),
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.auth.signOut()
+              if (error) {
+                Alert.alert("Error", "Failed to logout. Please try again.")
+              } else {
+                // Navigation will be handled by _layout.tsx auth state change
+                router.replace("/welcome")
+              }
+            } catch (error: any) {
+              console.error("Error in handleLogout:", error)
+              Alert.alert("Error", error.message || "An unexpected error occurred")
+            } finally {
+              setShowUserMenu(false)
+            }
+          },
+        },
+      ]
+    )
+  }
 
   const handleOrderAction = async (orderId: string, action: "done" | "cancel") => {
     try {
@@ -476,7 +511,10 @@ export default function StallDashboard() {
           <TouchableOpacity style={styles.iconButton}>
             <MaterialIcons name="notifications" size={24} color="#999" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.avatarButton}>
+          <TouchableOpacity 
+            style={styles.avatarButton}
+            onPress={() => setShowUserMenu(true)}
+          >
             <Image source={require("@/assets/images/user.png")} style={{ width: 24, height: 24 }} contentFit="contain" />
           </TouchableOpacity>
         </View>
@@ -484,6 +522,30 @@ export default function StallDashboard() {
 
       {activeTab === "home" && renderHomeView()}
       {activeTab === "orders" && renderOrdersView()}
+
+      {/* User Menu Modal */}
+      <Modal
+        visible={showUserMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowUserMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowUserMenu(false)}
+        >
+          <View style={styles.menuContainer}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleLogout}
+            >
+              <MaterialIcons name="logout" size={20} color="#FF5252" />
+              <Text style={styles.menuItemText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Bottom Navigation Bar */}
       <View style={styles.bottomNav}>
@@ -1141,5 +1203,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: YELLOW_DARK,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 60,
+    paddingRight: 18,
+  },
+  menuContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 8,
+    minWidth: 160,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF5252",
   },
 })

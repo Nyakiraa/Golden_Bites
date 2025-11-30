@@ -196,10 +196,26 @@ CREATE INDEX IF NOT EXISTS idx_foods_category ON foods(category);
 -- Enable Row Level Security (RLS) for foods
 ALTER TABLE foods ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow anyone to read available foods from active stalls
-CREATE POLICY "Anyone can read available foods from active stalls"
+-- Create policy to allow public access to available foods from active stalls
+-- This ensures all users can see food items and their images regardless of who added them
+CREATE POLICY "Public can read available foods from active stalls"
   ON foods
   FOR SELECT
+  TO public
+  USING (
+    is_available = true AND
+    EXISTS (
+      SELECT 1 FROM stalls
+      WHERE stalls.id = foods.stall_id
+      AND stalls.is_active = true
+    )
+  );
+
+-- Also create a policy for authenticated users (ensures authenticated users can definitely see foods)
+CREATE POLICY "Authenticated users can read available foods from active stalls"
+  ON foods
+  FOR SELECT
+  TO authenticated
   USING (
     is_available = true AND
     EXISTS (
@@ -217,6 +233,21 @@ CREATE POLICY "Admins can read their own foods"
     EXISTS (
       SELECT 1 FROM admins
       WHERE admins.stall_id = foods.stall_id
+      AND admins.user_id = auth.uid()
+    )
+  );
+
+-- Create policy to allow admins to read foods referenced in their stall's orders
+-- This ensures order history displays food details even if food was later deleted/unavailable
+CREATE POLICY "Admins can read foods in their stall orders"
+  ON foods
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM order_items
+      INNER JOIN orders ON orders.id = order_items.order_id
+      INNER JOIN admins ON admins.stall_id = orders.stall_id
+      WHERE order_items.food_id = foods.id
       AND admins.user_id = auth.uid()
     )
   );

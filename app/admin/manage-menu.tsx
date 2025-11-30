@@ -1,12 +1,12 @@
 "use client"
 
+import { supabase } from "@/lib/supabase"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { supabase } from "@/lib/supabase"
 
 interface FoodItem {
   id: string
@@ -14,6 +14,7 @@ interface FoodItem {
   description: string | null
   price: number
   image_url: string | null
+  image_data: string | null
   category: string | null
   is_available: boolean
   display_order: number | null
@@ -185,7 +186,13 @@ export default function ManageMenuScreen() {
                   !food.is_available && styles.menuItemUnavailable
                 ]}
               >
-                {food.image_url ? (
+                {food.image_data ? (
+                  <Image
+                    source={{ uri: food.image_data }}
+                    style={styles.menuItemImage}
+                    contentFit="cover"
+                  />
+                ) : food.image_url ? (
                   <Image
                     source={{ uri: food.image_url }}
                     style={styles.menuItemImage}
