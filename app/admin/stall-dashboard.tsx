@@ -2,8 +2,8 @@
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
-import { useRouter } from "expo-router"
-import { useEffect, useState } from "react"
+import { useFocusEffect, useRouter } from "expo-router"
+import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { supabase } from "@/lib/supabase"
@@ -65,74 +65,82 @@ export default function StallDashboard() {
     ],
   }
 
-  // Fetch stall ID and foods on component mount
-  useEffect(() => {
-    const fetchStallAndFoods = async () => {
-      try {
-        setLoading(true)
-        
-        // First, get the current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        
-        if (userError || !user) {
-          console.error("Error getting user:", userError)
-          setLoading(false)
-          return
-        }
-
-        // Get the admin record for this user to find their stall_id
-        const { data: adminData, error: adminError } = await supabase
-          .from("admins")
-          .select("stall_id")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        if (adminError || !adminData) {
-          console.error("Error fetching admin record:", adminError)
-          setLoading(false)
-          return
-        }
-
-        // Get the stall details using the stall_id from admin record
-        const { data: stallData, error: stallError } = await supabase
-          .from("stalls")
-          .select("id, name, location")
-          .eq("id", adminData.stall_id)
-          .single()
-
-        if (stallError) {
-          console.error("Error fetching stall:", stallError)
-          setLoading(false)
-          return
-        }
-
-        if (stallData) {
-          setStallId(stallData.id)
-
-          // Then fetch foods for this stall
-          const { data: foodsData, error: foodsError } = await supabase
-            .from("foods")
-            .select("*")
-            .eq("stall_id", stallData.id)
-            .eq("is_available", true)
-            .order("display_order", { ascending: true, nullsFirst: false })
-            .order("name", { ascending: true })
-
-          if (foodsError) {
-            console.error("Error fetching foods:", foodsError)
-          } else {
-            setFoods(foodsData || [])
-          }
-        }
-      } catch (error) {
-        console.error("Error in fetchStallAndFoods:", error)
-      } finally {
+  // Fetch stall ID and foods function
+  const fetchStallAndFoods = useCallback(async () => {
+    try {
+      setLoading(true)
+      
+      // First, get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) {
+        console.error("Error getting user:", userError)
         setLoading(false)
+        return
       }
-    }
 
-    fetchStallAndFoods()
+      // Get the admin record for this user to find their stall_id
+      const { data: adminData, error: adminError } = await supabase
+        .from("admins")
+        .select("stall_id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (adminError || !adminData) {
+        console.error("Error fetching admin record:", adminError)
+        setLoading(false)
+        return
+      }
+
+      // Get the stall details using the stall_id from admin record
+      const { data: stallData, error: stallError } = await supabase
+        .from("stalls")
+        .select("id, name, location")
+        .eq("id", adminData.stall_id)
+        .single()
+
+      if (stallError) {
+        console.error("Error fetching stall:", stallError)
+        setLoading(false)
+        return
+      }
+
+      if (stallData) {
+        setStallId(stallData.id)
+
+        // Then fetch foods for this stall
+        const { data: foodsData, error: foodsError } = await supabase
+          .from("foods")
+          .select("*")
+          .eq("stall_id", stallData.id)
+          .eq("is_available", true)
+          .order("display_order", { ascending: true, nullsFirst: false })
+          .order("name", { ascending: true })
+
+        if (foodsError) {
+          console.error("Error fetching foods:", foodsError)
+        } else {
+          setFoods(foodsData || [])
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchStallAndFoods:", error)
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  // Fetch on mount and when screen is focused
+  useEffect(() => {
+    fetchStallAndFoods()
+  }, [fetchStallAndFoods])
+
+  // Refresh when screen comes into focus (e.g., after adding an item)
+  useFocusEffect(
+    useCallback(() => {
+      fetchStallAndFoods()
+    }, [fetchStallAndFoods])
+  )
 
   const handleOrderAction = (orderId: string, action: "done" | "cancel") => {
     // Handle order action (done or cancel)
@@ -346,7 +354,7 @@ export default function StallDashboard() {
           <Text style={[styles.navLabel, activeTab === "orders" && styles.navLabelActive]}>Orders</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navAddButton}>
+        <TouchableOpacity style={styles.navAddButton} onPress={() => router.push('/admin/add-item')}>
           <MaterialIcons name="add" size={32} color="#FFFFFF" />
         </TouchableOpacity>
 
