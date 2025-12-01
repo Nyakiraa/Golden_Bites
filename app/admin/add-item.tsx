@@ -1,13 +1,14 @@
 "use client"
 
+import { supabase } from "@/lib/supabase"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+import * as FileSystem from "expo-file-system/legacy"
 import { Image } from "expo-image"
 import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { supabase } from "@/lib/supabase"
 
 const YELLOW_DARK = "#F2BC2B"
 const YELLOW_BG = "#FFF9E6"
@@ -53,6 +54,68 @@ export default function AddItemScreen() {
     fetchStallId()
   }, [])
 
+  // Upload a local image file to Supabase Storage as PNG and return its public URL
+  const uploadImageToSupabase = async (imageUri: string): Promise<string | null> => {
+    if (!stallId) {
+      Alert.alert("Error", "Stall ID not found. Please try again.")
+      return null
+    }
+
+    try {
+      setUploading(true)
+
+      // Read the picked file as base64. Some TS versions don't expose EncodingType,
+      // so we pass the encoding as a string literal.
+      const base64Data = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: "base64" as any,
+      })
+
+      // Generate a unique filename inside the menu-images bucket
+      const timestamp = Date.now()
+      const sanitizedItemName = itemName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase() || "item"
+      const fileName = `${stallId}/${sanitizedItemName}_${timestamp}.png`
+
+      // Convert base64 string to binary Uint8Array
+      const binaryString = atob(base64Data)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+
+      // Upload to Supabase Storage bucket "menu-images"
+      const { error } = await supabase.storage
+        .from("menu-images")
+        .upload(fileName, bytes, {
+          contentType: "image/png",
+          upsert: false,
+        })
+
+      if (error) {
+        console.error("Error uploading image to Supabase:", error)
+        Alert.alert("Error", "Failed to upload image. Please try again.")
+        return null
+      }
+
+      // Get the public URL for this file
+      const { data: publicUrlData } = supabase.storage
+        .from("menu-images")
+        .getPublicUrl(fileName)
+
+      const publicUrl = publicUrlData?.publicUrl || null
+      if (!publicUrl) {
+        Alert.alert("Error", "Failed to get public image URL. Please try again.")
+      }
+
+      return publicUrl
+    } catch (error: any) {
+      console.error("Error in uploadImageToSupabase:", error)
+      Alert.alert("Error", "Failed to upload image. Please try again.")
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const pickImage = async (isMain: boolean = true) => {
     try {
       // Request permission
@@ -62,7 +125,8 @@ export default function AddItemScreen() {
         return
       }
 
-      // Launch image picker
+      // Launch image picker (images only). This uses MediaTypeOptions.Images,
+      // which is marked deprecated but still works correctly with this SDK.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -73,10 +137,14 @@ export default function AddItemScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0]
         if (isMain) {
+          // Show a local preview while uploading
           setImageUri(asset.uri)
-          // For now, we'll use the local URI. In production, you'd upload to Supabase Storage
-          // For simplicity, we'll just use the URI directly (works for local testing)
-          setImageUrl(asset.uri)
+
+          // Upload to Supabase Storage and store the public URL so all devices can see it
+          const publicUrl = await uploadImageToSupabase(asset.uri)
+          if (publicUrl) {
+            setImageUrl(publicUrl)
+          }
         }
       }
     } catch (error: any) {

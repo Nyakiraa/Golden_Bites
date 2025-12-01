@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
-import { useCallback, useEffect, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -143,7 +143,7 @@ export default function ManageMenuScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
