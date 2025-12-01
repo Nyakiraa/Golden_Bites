@@ -34,7 +34,7 @@ export default function WelcomeScreen() {
           <Text style={styles.welcomeTitle}>WELCOME</Text>
           
           <Text style={styles.bodyText}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            Golden Bites is your campus food-ordering app made to save you time. Order ahead, skip the lines, and pick up your meals with zero hassle. Sign up to get started.  
           </Text>
           
           <View style={styles.buttonContainer}>
