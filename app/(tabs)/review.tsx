@@ -20,7 +20,7 @@ function RatingStars({ rating, onRate }: RatingStarsProps) {
   )
 }
 
-const QUICK_FEEDBACK = ["Delicious", "On time", "Well-packed", "Value for money", "Polite driver", "Fresh & hot"]
+const QUICK_FEEDBACK = ["Delicious", "On time", "Well-packed", "Value for money", "Fast Delivery", "Fresh & hot"]
 
 export default function ReviewScreen() {
   const router = useRouter()
