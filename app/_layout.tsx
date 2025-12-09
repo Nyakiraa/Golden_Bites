@@ -102,6 +102,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin/add-item" options={{ headerShown: false }} />
           <Stack.Screen name="admin/manage-menu" options={{ headerShown: false }} />
           <Stack.Screen name="admin/edit-item" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/profile" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

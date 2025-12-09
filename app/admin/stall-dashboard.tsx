@@ -179,7 +179,7 @@ export default function StallDashboard() {
           )
         `, { count: "exact" })
         .eq("stall_id", stallIdParam)
-        .in("status", ["pending", "confirmed", "preparing", "ready"])
+        .in("status", ["pending", "confirmed", "preparing", "ready", "completed", "cancelled"])
         .order("created_at", { ascending: false })
 
       if (ordersError) {
@@ -196,7 +196,7 @@ export default function StallDashboard() {
       // Count orders by status
       const pendingCount = (ordersData || []).filter(o => o.status === "pending").length
       const runningCount = (ordersData || []).filter(o => 
-        ["confirmed", "preparing", "ready"].includes(o.status)
+        ["confirmed", "preparing", "ready", "completed", "cancelled"].includes(o.status)
       ).length
 
       setOrderRequests(pendingCount)
@@ -389,30 +389,6 @@ export default function StallDashboard() {
           )}
         </View>
 
-        {/* Popular Items Section */}
-        {foods.length > 0 && (
-          <View style={styles.popularItemsCard}>
-            <View style={styles.popularItemsHeader}>
-              <Text style={styles.popularItemsTitle}>Popular Items this Week</Text>
-              <TouchableOpacity>
-                <Text style={styles.seeAllLink}>See All</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.popularItemsList}>
-              {foods.slice(0, 3).map((item) => (
-                <View key={item.id} style={styles.popularItem}>
-                  {item.image_url ? (
-                    <Image source={{ uri: item.image_url }} style={styles.popularItemImage} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.popularItemImage, { backgroundColor: "#F5F5F5", alignItems: "center", justifyContent: "center" }]}>
-                      <MaterialIcons name="restaurant" size={32} color="#E0E0E0" />
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
       </ScrollView>
   )
 
@@ -441,7 +417,12 @@ export default function StallDashboard() {
                 <View style={styles.orderItemHeader}>
                   <View style={styles.orderItemHeaderLeft}>
                     <Text style={styles.orderItemNumber}>{order.order_number}</Text>
-                    <View style={[styles.statusBadge, order.status === "pending" && styles.statusBadgePending]}>
+                    <View style={[
+                      styles.statusBadge,
+                      order.status === "pending" && styles.statusBadgePending,
+                      order.status === "completed" && styles.statusBadgeCompleted,
+                      order.status === "cancelled" && styles.statusBadgeCancelled,
+                    ]}>
                       <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
                     </View>
                   </View>
@@ -535,7 +516,12 @@ export default function StallDashboard() {
               {/* Order Status */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Order Status</Text>
-                <View style={[styles.statusBadge, selectedOrder.status === "pending" && styles.statusBadgePending]}>
+                <View style={[
+                  styles.statusBadge,
+                  selectedOrder.status === "pending" && styles.statusBadgePending,
+                  selectedOrder.status === "completed" && styles.statusBadgeCompleted,
+                  selectedOrder.status === "cancelled" && styles.statusBadgeCancelled,
+                ]}>
                   <Text style={styles.statusText}>{selectedOrder.status.toUpperCase()}</Text>
                 </View>
               </View>
@@ -615,9 +601,6 @@ export default function StallDashboard() {
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialIcons name="notifications" size={24} color="#999" />
-          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.avatarButton}
             onPress={() => setShowUserMenu(true)}
@@ -646,6 +629,16 @@ export default function StallDashboard() {
           onPress={() => setShowUserMenu(false)}
         >
           <View style={styles.menuContainer}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowUserMenu(false)
+                router.push("/admin/profile")
+              }}
+            >
+              <MaterialIcons name="person" size={20} color="#F2BC2B" />
+              <Text style={styles.menuItemText}>Profile</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleLogout}
@@ -1249,6 +1242,12 @@ const styles = StyleSheet.create({
   },
   statusBadgePending: {
     backgroundColor: "#FF9800",
+  },
+  statusBadgeCompleted: {
+    backgroundColor: "#4CAF50",
+  },
+  statusBadgeCancelled: {
+    backgroundColor: "#F44336",
   },
   statusText: {
     fontSize: 10,
