@@ -1,12 +1,12 @@
 "use client"
 
+import { supabase } from "@/lib/supabase"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { supabase } from "@/lib/supabase"
 
 interface FoodItem {
   id: string
@@ -57,6 +57,7 @@ export default function StallDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   // Fetch stall ID and foods function
   const fetchStallAndFoods = useCallback(async () => {
@@ -176,7 +177,7 @@ export default function StallDashboard() {
               image_url
             )
           )
-        `)
+        `, { count: "exact" })
         .eq("stall_id", stallIdParam)
         .in("status", ["pending", "confirmed", "preparing", "ready"])
         .order("created_at", { ascending: false })
@@ -189,6 +190,7 @@ export default function StallDashboard() {
         return
       }
 
+      console.log("Fetched orders:", ordersData)
       setOrders(ordersData || [])
       
       // Count orders by status
@@ -244,6 +246,31 @@ export default function StallDashboard() {
   }
 
   const handleOrderAction = async (orderId: string, action: "done" | "cancel") => {
+    // Show confirmation for cancel action
+    if (action === "cancel") {
+      Alert.alert(
+        "Cancel Order",
+        "Are you sure you want to cancel this order?",
+        [
+          {
+            text: "No",
+            style: "cancel",
+          },
+          {
+            text: "Yes",
+            style: "destructive",
+            onPress: () => performOrderAction(orderId, action),
+          },
+        ]
+      )
+      return
+    }
+
+    // For done action, proceed directly
+    await performOrderAction(orderId, action)
+  }
+
+  const performOrderAction = async (orderId: string, action: "done" | "cancel") => {
     try {
       let newStatus: string
       if (action === "done") {
@@ -268,7 +295,7 @@ export default function StallDashboard() {
         await fetchOrders(stallId)
       }
     } catch (error) {
-      console.error("Error in handleOrderAction:", error)
+      console.error("Error in performOrderAction:", error)
       Alert.alert("Error", "An unexpected error occurred")
     }
   }
@@ -393,7 +420,6 @@ export default function StallDashboard() {
     <View style={styles.ordersContainer}>
       {/* Orders Panel */}
       <View style={styles.ordersPanel}>
-        <View style={styles.ordersPanelHandle} />
         <Text style={styles.ordersPanelTitle}>
           {runningOrders + orderRequests} {runningOrders + orderRequests === 1 ? "Order" : "Orders"}
         </Text>
@@ -411,7 +437,7 @@ export default function StallDashboard() {
             </View>
           ) : (
             orders.map((order) => (
-              <View key={order.id} style={styles.orderItem}>
+              <TouchableOpacity key={order.id} style={styles.orderItem} onPress={() => setSelectedOrder(order)}>
                 <View style={styles.orderItemHeader}>
                   <View style={styles.orderItemHeaderLeft}>
                     <Text style={styles.orderItemNumber}>{order.order_number}</Text>
@@ -479,7 +505,7 @@ export default function StallDashboard() {
                     )}
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </ScrollView>
@@ -487,16 +513,97 @@ export default function StallDashboard() {
     </View>
   )
 
+  const renderOrderDetailsModal = () => (
+    <Modal
+      visible={selectedOrder !== null}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setSelectedOrder(null)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setSelectedOrder(null)}>
+            <MaterialIcons name="close" size={24} color="#000000" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Order {selectedOrder?.order_number}</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          {selectedOrder && (
+            <>
+              {/* Order Status */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Order Status</Text>
+                <View style={[styles.statusBadge, selectedOrder.status === "pending" && styles.statusBadgePending]}>
+                  <Text style={styles.statusText}>{selectedOrder.status.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              {/* Order Items */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Items Ordered</Text>
+                {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                  <View style={styles.modalItemsList}>
+                    {selectedOrder.order_items.map((item) => (
+                      <View key={item.id} style={styles.modalOrderItem}>
+                        <View style={styles.modalItemImage}>
+                          {item.foods?.image_url ? (
+                            <Image source={{ uri: item.foods.image_url }} style={styles.modalImage} contentFit="cover" />
+                          ) : (
+                            <View style={styles.modalImagePlaceholder}>
+                              <MaterialIcons name="restaurant" size={32} color="#E0E0E0" />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.modalItemInfo}>
+                          <Text style={styles.modalItemName}>{item.foods?.name || "Unknown Item"}</Text>
+                          <Text style={styles.modalItemQty}>Quantity: {item.quantity}</Text>
+                          <Text style={styles.modalItemPrice}>₱{Number(item.subtotal).toFixed(2)}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.modalNoItems}>No items in this order</Text>
+                )}
+              </View>
+
+              {/* Delivery Address */}
+              {selectedOrder.delivery_address && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Delivery Address</Text>
+                  <View style={styles.modalAddressBox}>
+                    <MaterialIcons name="location-on" size={20} color={YELLOW_DARK} />
+                    <Text style={styles.modalAddressText}>{selectedOrder.delivery_address}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Total */}
+              <View style={styles.modalSection}>
+                <View style={styles.modalTotalRow}>
+                  <Text style={styles.modalTotalLabel}>Total Amount:</Text>
+                  <Text style={styles.modalTotalAmount}>₱{Number(selectedOrder.total).toFixed(2)}</Text>
+                </View>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  )
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header Section */}
-      <View style={[styles.header, activeTab === "orders" && styles.headerOrders]}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.menuButton}>
           <MaterialIcons name="menu" size={24} color="#999" />
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
-          <Text style={[styles.stallName, activeTab === "orders" && styles.stallNameOrders]}>
+          <Text style={styles.stallName}>
             {stallName}
           </Text>
           {activeTab === "home" && (
@@ -522,6 +629,9 @@ export default function StallDashboard() {
 
       {activeTab === "home" && renderHomeView()}
       {activeTab === "orders" && renderOrdersView()}
+
+      {/* Order Details Modal */}
+      {renderOrderDetailsModal()}
 
       {/* User Menu Modal */}
       <Modal
@@ -989,14 +1099,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     marginTop: 8,
   },
-  ordersPanelHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 16,
-  },
   ordersPanelTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -1235,5 +1337,124 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FF5252",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  modalSection: {
+    marginBottom: 24,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000000",
+    marginBottom: 12,
+  },
+  modalItemsList: {
+    gap: 12,
+  },
+  modalOrderItem: {
+    flexDirection: "row",
+    backgroundColor: "#F9F9F9",
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  modalItemImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#F5F5F5",
+  },
+  modalImage: {
+    width: "100%",
+    height: "100%",
+  },
+  modalImagePlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalItemInfo: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  modalItemName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  modalItemQty: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+  },
+  modalItemPrice: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: YELLOW_DARK,
+  },
+  modalNoItems: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#999",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  modalAddressBox: {
+    flexDirection: "row",
+    backgroundColor: "#F9F9F9",
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+    alignItems: "flex-start",
+  },
+  modalAddressText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+    flex: 1,
+  },
+  modalTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
+  modalTotalLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  modalTotalAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: YELLOW_DARK,
   },
 })

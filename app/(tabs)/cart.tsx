@@ -1,33 +1,38 @@
 "use client"
 
+import { useCart } from "@/app/context/CartContext"
 import { useRouter } from "expo-router"
+import { useCallback } from "react"
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 
 const YELLOW_LIGHT = "#F8DF86"
 const YELLOW_DARK = "#F2BC2B"
 
-const CART_ITEMS = [
-  {
-    id: "fd1",
-    name: "Chicken Fillet Rice Bowl",
-    price: 99,
-    qty: 2,
-    image: "https://images.unsplash.com/photo-1606756790138-261d2b21cd30?w=250&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "fd3",
-    name: "Iced Caramel Latte",
-    price: 95,
-    qty: 1,
-    image: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=250&q=80&auto=format&fit=crop",
-  },
-]
-
 export default function CartScreen() {
   const router = useRouter()
-  const subtotal = CART_ITEMS.reduce((sum, i) => sum + i.price * i.qty, 0)
+  const { cartItems, updateQuantity, removeFromCart } = useCart()
+
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0)
   const deliveryFee = 25
   const total = subtotal + deliveryFee
+
+  const handleIncreaseQty = useCallback((itemId: string) => {
+    const item = cartItems.find(i => i.id === itemId)
+    if (item) {
+      updateQuantity(itemId, item.qty + 1)
+    }
+  }, [cartItems, updateQuantity])
+
+  const handleDecreaseQty = useCallback((itemId: string) => {
+    const item = cartItems.find(i => i.id === itemId)
+    if (item && item.qty > 1) {
+      updateQuantity(itemId, item.qty - 1)
+    }
+  }, [cartItems, updateQuantity])
+
+  const handleRemoveItem = useCallback((itemId: string) => {
+    removeFromCart(itemId)
+  }, [removeFromCart])
 
   return (
     <View style={styles.bg}>
@@ -38,24 +43,52 @@ export default function CartScreen() {
       >
         <Text style={styles.sectionTitle}>Your Cart</Text>
 
-        {CART_ITEMS.map((item) => (
-          <View style={styles.itemCard} key={item.id}>
-            <Image source={{ uri: item.image }} style={styles.itemImage} />
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>₱{item.price}</Text>
-            </View>
-            <View style={styles.qtyWrap}>
-              <TouchableOpacity style={styles.qtyBtn}>
-                <Text style={styles.qtyBtnText}>−</Text>
-              </TouchableOpacity>
-              <Text style={styles.qtyNum}>{item.qty}</Text>
-              <TouchableOpacity style={styles.qtyBtn}>
-                <Text style={styles.qtyBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
+        {cartItems.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Your cart is empty</Text>
+            <Text style={styles.emptySubtext}>Add items from the restaurant menu to get started</Text>
+            <TouchableOpacity 
+              style={styles.browseBtn}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.browseBtnText}>Browse Menu</Text>
+            </TouchableOpacity>
           </View>
-        ))}
+        ) : (
+          cartItems.map((item) => (
+            <View style={styles.itemCard} key={item.id}>
+              <Image 
+                source={{ uri: item.image_data || item.image_url }} 
+                style={styles.itemImage}
+              />
+              <View style={styles.itemDetails}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemPrice}>₱{Number(item.price).toFixed(2)}</Text>
+              </View>
+              <View style={styles.qtyWrap}>
+                <TouchableOpacity 
+                  style={styles.qtyBtn}
+                  onPress={() => handleDecreaseQty(item.id)}
+                >
+                  <Text style={styles.qtyBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.qtyNum}>{item.qty}</Text>
+                <TouchableOpacity 
+                  style={styles.qtyBtn}
+                  onPress={() => handleIncreaseQty(item.id)}
+                >
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                style={styles.removeBtn}
+                onPress={() => handleRemoveItem(item.id)}
+              >
+                <Text style={styles.removeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
@@ -74,11 +107,13 @@ export default function CartScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.replace("/checkout")}>
-          <Text style={styles.checkoutBtnText}>Go to Checkout</Text>
-        </TouchableOpacity>
-      </View>
+      {cartItems.length > 0 && (
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.replace("/checkout")}>
+            <Text style={styles.checkoutBtnText}>Go to Checkout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   )
 }
@@ -241,5 +276,49 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#666",
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#999",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  browseBtn: {
+    backgroundColor: YELLOW_DARK,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  browseBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  removeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FF5252",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  removeBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 })

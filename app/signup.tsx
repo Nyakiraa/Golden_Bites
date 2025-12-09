@@ -1,8 +1,8 @@
+import { supabase } from '@/lib/supabase';
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
   const [fontsLoaded] = useFonts({
@@ -14,6 +14,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   if (!fontsLoaded) {
     return null;
@@ -27,6 +28,11 @@ export default function SignUpScreen() {
 
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    if (!termsAccepted) {
+      Alert.alert('Error', 'Please accept the Terms and Conditions to continue');
       return;
     }
 
@@ -167,8 +173,13 @@ export default function SignUpScreen() {
           </View>
 
           <View style={styles.termsRow}>
-            <TouchableOpacity style={styles.termsCheckbox}>
-              <View style={styles.checkboxSquare} />
+            <TouchableOpacity 
+              style={styles.termsCheckbox}
+              onPress={() => setTermsAccepted(!termsAccepted)}
+            >
+              <View style={[styles.checkboxSquare, termsAccepted && styles.checkboxSquareChecked]}>
+                {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
+              </View>
             </TouchableOpacity>
             <View style={styles.termsTextContainer}>
               <Text style={styles.termsText}>I&apos;ve read and agree with the </Text>
@@ -354,6 +365,17 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 3,
     backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSquareChecked: {
+    backgroundColor: YELLOW_DARK,
+    borderColor: YELLOW_DARK,
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   termsTextContainer: {
     flex: 1,

@@ -1,8 +1,8 @@
+import { supabase } from '@/lib/supabase';
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
   const [fontsLoaded] = useFonts({
@@ -12,6 +12,7 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   if (!fontsLoaded) {
     return null;
@@ -126,9 +127,12 @@ export default function SignInScreen() {
           </View>
 
           <View style={styles.checkboxRow}>
-            <TouchableOpacity style={styles.checkbox}>
-              <View style={styles.checkboxInner}>
-                <Text style={styles.checkmark}>✓</Text>
+            <TouchableOpacity 
+              style={styles.checkbox}
+              onPress={() => setRememberMe(!rememberMe)}
+            >
+              <View style={[styles.checkboxInner, !rememberMe && styles.checkboxUnchecked]}>
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
               </View>
             </TouchableOpacity>
             <Text style={styles.rememberText}>Remember me</Text>
@@ -295,6 +299,11 @@ const styles = StyleSheet.create({
     backgroundColor: YELLOW_DARK,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  checkboxUnchecked: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   checkmark: {
     color: '#FFFFFF',

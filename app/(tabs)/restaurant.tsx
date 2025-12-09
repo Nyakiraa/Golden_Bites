@@ -1,44 +1,88 @@
 "use client"
 
-import { useLocalSearchParams, useRouter } from "expo-router"
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useCart } from "@/app/context/CartContext"
+import { supabase } from "@/lib/supabase"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+import { useCallback, useEffect, useState } from "react"
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 
 const YELLOW_LIGHT = "#F8DF86"
 const YELLOW_DARK = "#F2BC2B"
 
-const DEMO_MENU = [
-  {
-    id: "fd1",
-    name: "Chicken Fillet Rice Bowl",
-    desc: "Tender chicken fillet with savory gravy over rice.",
-    price: 99,
-    image: "https://images.unsplash.com/photo-1606756790138-261d2b21cd30?w=500&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "fd2",
-    name: "Classic Burger Meal",
-    desc: "Juicy beef patty, fries, and a drink.",
-    price: 149,
-    image: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "fd3",
-    name: "Iced Caramel Latte",
-    desc: "Sweet, cold coffee with caramel drizzle.",
-    price: 95,
-    image: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=500&q=80&auto=format&fit=crop",
-  },
-]
+interface MenuItem {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  image_url: string | null
+  image_data: string | null
+  is_available: boolean
+}
 
 export default function RestaurantScreen() {
   const params = useLocalSearchParams()
   const router = useRouter()
+  const { addToCart } = useCart()
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [loading, setLoading] = useState(true)
   const name = Array.isArray(params.name) ? params.name[0] : (params.name ?? "")
   const image = Array.isArray(params.image) ? params.image[0] : (params.image ?? "")
   const tag = Array.isArray(params.tag) ? params.tag[0] : (params.tag ?? "")
   const rating = Array.isArray(params.rating) ? params.rating[0] : (params.rating ?? "")
   const fee = Array.isArray(params.fee) ? params.fee[0] : (params.fee ?? "")
   const time = Array.isArray(params.time) ? params.time[0] : (params.time ?? "")
+
+  // Fetch menu items for RC Food Stall
+  const fetchMenuItems = useCallback(async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch the RC FOOD STALL first
+      const { data: stallData, error: stallError } = await supabase
+        .from("stalls")
+        .select("id")
+        .eq("name", "RC FOOD STALL")
+        .eq("is_active", true)
+        .single()
+
+      if (stallError || !stallData) {
+        console.error("Error fetching stall:", stallError)
+        setMenuItems([])
+        return
+      }
+
+      // Fetch menu items for this stall
+      const { data: foodsData, error: foodsError } = await supabase
+        .from("foods")
+        .select("*")
+        .eq("stall_id", stallData.id)
+        .eq("is_available", true)
+        .order("display_order", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true })
+
+      if (foodsError) {
+        console.error("Error fetching menu items:", foodsError)
+        setMenuItems([])
+      } else {
+        setMenuItems(foodsData || [])
+      }
+    } catch (error) {
+      console.error("Error in fetchMenuItems:", error)
+      setMenuItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMenuItems()
+  }, [fetchMenuItems])
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMenuItems()
+    }, [fetchMenuItems])
+  )
   const LOCAL_IMAGES: Record<string, any> = {
     "bambam.png": require("@/assets/images/bambam.png"),
     "puting_bahay.png": require("@/assets/images/puting_bahay.png"),
@@ -72,21 +116,73 @@ export default function RestaurantScreen() {
       {/* Menu List */}
       <View style={{ padding: 18 }}>
         <Text style={styles.menuHeader}>Menu</Text>
-        {DEMO_MENU.map((item) => (
-          <View style={styles.menuCard} key={item.id}>
-            <Image source={{ uri: item.image }} style={styles.menuImage} />
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.menuName}>{item.name}</Text>
-              <Text style={styles.menuDesc}>{item.desc}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
-                <Text style={styles.menuPrice}>₱{item.price}</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={() => router.push("/cart")}>
-                  <Text style={styles.addBtnText}>Add</Text>
-                </TouchableOpacity>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={YELLOW_DARK} />
+            <Text style={styles.loadingText}>Loading menu items...</Text>
+          </View>
+        ) : menuItems.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No menu items available</Text>
+          </View>
+        ) : (
+          menuItems.map((item) => (
+            <View style={styles.menuCard} key={item.id}>
+              {item.image_data ? (
+                <Image source={{ uri: item.image_data }} style={styles.menuImage} />
+              ) : item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.menuImage} />
+              ) : (
+                <View style={[styles.menuImage, { backgroundColor: YELLOW_LIGHT, justifyContent: "center", alignItems: "center" }]}>
+                  <Text style={{ color: "#999" }}>No Image</Text>
+                </View>
+              )}
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={styles.menuName}>{item.name}</Text>
+                {item.description && <Text style={styles.menuDesc}>{item.description}</Text>}
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
+                  <Text style={styles.menuPrice}>₱{Number(item.price).toFixed(2)}</Text>
+                  <TouchableOpacity 
+                    style={[styles.addBtn, !item.is_available && styles.addBtnDisabled]} 
+                    onPress={() => {
+                      if (item.is_available) {
+                        // Add item to cart with quantity 1
+                        addToCart({
+                          id: item.id,
+                          name: item.name,
+                          price: item.price,
+                          qty: 1,
+                          image_url: item.image_url,
+                          image_data: item.image_data,
+                        })
+                        
+                        // Show confirmation alert
+                        Alert.alert(
+                          "Added to Cart",
+                          `${item.name} has been added to your cart`,
+                          [
+                            {
+                              text: "Continue Shopping",
+                              style: "default",
+                            },
+                            {
+                              text: "Go to Cart",
+                              style: "default",
+                              onPress: () => router.push("/(tabs)/cart"),
+                            },
+                          ]
+                        )
+                      }
+                    }}
+                    disabled={!item.is_available}
+                  >
+                    <Text style={styles.addBtnText}>{item.is_available ? "Add" : "Unavailable"}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </View>
     </ScrollView>
   )
@@ -181,5 +277,29 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 15,
     letterSpacing: 0.5,
+  },
+  addBtnDisabled: {
+    opacity: 0.5,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#999",
   },
 })

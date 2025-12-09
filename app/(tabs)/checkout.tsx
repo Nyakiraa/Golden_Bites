@@ -1,26 +1,19 @@
 "use client"
 
+import { useCart } from "@/app/context/CartContext"
+import { supabase } from "@/lib/supabase"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import { supabase } from "@/lib/supabase"
 
 const YELLOW_LIGHT = "#F8DF86"
 const YELLOW_DARK = "#F2BC2B"
 
-// TODO: Replace with real cart data from context/state management
-const CART_ITEMS = [
-  { id: "fd1", name: "Chicken Fillet Rice Bowl", qty: 2, price: 99, food_id: null as string | null }, // food_id will be set from database
-  { id: "fd3", name: "Iced Caramel Latte", qty: 1, price: 95, food_id: null as string | null },
-]
-
-// TODO: Get this from route params or cart context
-const STALL_ID = null as string | null // Will be set from route params or cart
-
 export default function CheckoutScreen() {
   const router = useRouter()
+  const { cartItems } = useCart()
   const [loading, setLoading] = useState(false)
-  const subtotal = CART_ITEMS.reduce((sum, i) => sum + i.price * i.qty, 0)
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0)
   const deliveryFee = 25
   const total = subtotal + deliveryFee
 
@@ -54,6 +47,12 @@ export default function CheckoutScreen() {
         stallId = stallData.id
       }
 
+      // Check if cart is empty
+      if (cartItems.length === 0) {
+        Alert.alert("Error", "Your cart is empty. Please add items before checking out.")
+        return
+      }
+
       // Generate order number
       const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
 
@@ -79,28 +78,28 @@ export default function CheckoutScreen() {
         return
       }
 
-      // Create order items
-      // TODO: Map cart items to actual food_ids from database
-      // For now, we'll create order items with the cart data
-      // In a real implementation, you'd fetch food_ids based on the cart items
-      const orderItems = CART_ITEMS.map(item => ({
+      // Create order items from cart items
+      const orderItems = cartItems.map(item => ({
         order_id: orderData.id,
-        food_id: item.food_id || "00000000-0000-0000-0000-000000000000", // Placeholder - should be real food_id
+        food_id: item.id, // Use the item id as food_id
         quantity: item.qty,
         price: item.price,
         subtotal: item.price * item.qty,
       }))
 
-      // If we have real food_ids, insert order items
-      // For now, we'll skip this if food_ids are not available
-      if (orderItems.some(item => item.food_id !== "00000000-0000-0000-0000-000000000000")) {
+      // Insert order items
+      if (orderItems.length > 0) {
+        console.log("Inserting order items:", orderItems)
         const { error: itemsError } = await supabase
           .from("order_items")
           .insert(orderItems)
 
         if (itemsError) {
           console.error("Error creating order items:", itemsError)
+          Alert.alert("Warning", "Order created but items could not be added. Please contact support.")
           // Continue anyway - order is created
+        } else {
+          console.log("Order items created successfully")
         }
       }
 
@@ -132,7 +131,7 @@ export default function CheckoutScreen() {
         {/* Order Summary */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionLabel}>Order Summary</Text>
-          {CART_ITEMS.map((item) => (
+          {cartItems.map((item) => (
             <View style={styles.itemRow} key={item.id}>
               <Text style={styles.itemQty}>x{item.qty}</Text>
               <Text style={styles.itemName}>{item.name}</Text>
