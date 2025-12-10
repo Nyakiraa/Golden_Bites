@@ -1,8 +1,10 @@
 "use client"
 
-import { Tabs } from "expo-router"
-import { useState } from "react"
+import { useCart } from '@/app/context/CartContext'
+import { Tabs, useRouter } from "expo-router"
+import { useEffect, useState } from "react"
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { HapticTab } from "@/components/haptic-tab"
 import { IconSymbol } from "@/components/ui/icon-symbol"
@@ -12,6 +14,17 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 export default function TabLayout() {
   const colorScheme = useColorScheme()
   const [activeTab, setActiveTab] = useState("home")
+  const insets = useSafeAreaInsets()
+  const router = useRouter()
+  const { cartItems } = useCart()
+
+  // Sync active tab based on route pathname when the layout mounts
+  useEffect(() => {
+    const pathname = router.asPath ?? ''
+    if (pathname.includes('/cart')) setActiveTab('cart')
+    else if (pathname.includes('/favorites')) setActiveTab('favorites')
+    else setActiveTab('home')
+  }, [router.asPath])
 
   const YELLOW_DARK = "#F2BC2B"
   const YELLOW_LIGHT = "#F8DF86"
@@ -36,25 +49,43 @@ export default function TabLayout() {
       </Tabs>
 
       {/* Custom Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab("home")}>
+      <View style={[styles.bottomNav, { paddingBottom: 14 + insets.bottom }]}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            setActiveTab("home")
+            router.push('/(tabs)')
+          }}
+        >
           <View style={[styles.navIcon, activeTab === "home" && styles.activeNavIcon]}>
             <IconSymbol size={24} name="house.fill" color={activeTab === "home" ? YELLOW_DARK : "#999"} />
           </View>
           <Text style={[styles.navLabel, activeTab === "home" && styles.activeNavLabel]}>Home</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab("cart")}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            setActiveTab("cart")
+            router.push('/(tabs)/cart')
+          }}
+        >
           <View style={[styles.navIcon, activeTab === "cart" && styles.activeNavIcon]}>
             <IconSymbol size={24} name="cart.fill" color={activeTab === "cart" ? YELLOW_DARK : "#999"} />
             <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>3</Text>
+              <Text style={styles.cartBadgeText}>{String(cartItems.length ?? 0)}</Text>
             </View>
           </View>
           <Text style={[styles.navLabel, activeTab === "cart" && styles.activeNavLabel]}>Cart</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab("favorites")}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            setActiveTab("favorites")
+            router.push('/(tabs)/favorites')
+          }}
+        >
           <View style={[styles.navIcon, activeTab === "favorites" && styles.activeNavIcon]}>
             <IconSymbol size={24} name="heart.fill" color={activeTab === "favorites" ? YELLOW_DARK : "#999"} />
           </View>
