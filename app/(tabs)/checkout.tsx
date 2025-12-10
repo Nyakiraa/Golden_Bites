@@ -11,7 +11,7 @@ const YELLOW_DARK = "#F2BC2B"
 
 export default function CheckoutScreen() {
   const router = useRouter()
-  const { cartItems, stallId } = useCart()
+  const { cartItems, stallId, selectedLocation } = useCart()
   const [loading, setLoading] = useState(false)
   const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0)
   const deliveryFee = 25
@@ -52,7 +52,7 @@ export default function CheckoutScreen() {
           stall_id: stallId,
           order_number: orderNumber,
           status: "pending",
-          delivery_address: "ADNU Campus, Naga City",
+          delivery_address: selectedLocation || "ADNU Campus",
           subtotal: subtotal,
           delivery_fee: deliveryFee,
           total: total,
@@ -114,7 +114,7 @@ export default function CheckoutScreen() {
         {/* Address Section */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionLabel}>Deliver to</Text>
-          <Text style={styles.sectionAddress}>ADNU Campus, Naga City</Text>
+          <Text style={styles.sectionAddress}>{selectedLocation || "ADNU Campus"}</Text>
         </View>
         {/* Order Summary */}
         <View style={styles.sectionBlock}>
