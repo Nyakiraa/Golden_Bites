@@ -1,15 +1,20 @@
 "use client"
 
 import { supabase } from "@/lib/supabase"
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+const YELLOW_DARK = "#F2BC2B"
+const PURPLE = "#6A2FBF"
+
 export default function ProfileScreen() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showEdit, setShowEdit] = useState(true)
 
   const [userId, setUserId] = useState<string | null>(null)
   const [email, setEmail] = useState("")
@@ -32,7 +37,6 @@ export default function ProfileScreen() {
         setUserId(u.id)
         setEmail(u.email ?? "")
 
-        // Try to read from users table
         const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('name, phone')
@@ -43,7 +47,6 @@ export default function ProfileScreen() {
           setName(profile.name ?? "")
           setPhone(profile.phone ?? "")
         } else {
-          // Fallback to auth metadata
           setName((u.user_metadata as any)?.name ?? "")
           setPhone((u.user_metadata as any)?.phone ?? "")
         }
@@ -62,18 +65,13 @@ export default function ProfileScreen() {
     if (!userId) return
     setSaving(true)
     try {
-      // Update auth user metadata
-      const { data: updatedAuth, error: authError } = await supabase.auth.updateUser({ data: { name: name || null, phone: phone || null } })
-      if (authError) {
-        console.warn('Failed to update auth user metadata', authError)
-      }
-
-      // Upsert into users table (RLS should allow update of own profile)
-      const { data, error } = await supabase.from('users').upsert({ id: userId, email, name: name || null, phone: phone || null }, { onConflict: 'id' })
+      await supabase.auth.updateUser({ data: { name: name || null, phone: phone || null } })
+      const { error } = await supabase.from('users').upsert({ id: userId, email, name: name || null, phone: phone || null }, { onConflict: 'id' })
       if (error) {
         Alert.alert('Save failed', error.message || 'Could not save profile')
       } else {
         Alert.alert('Saved', 'Your profile has been updated')
+        setShowEdit(false)
       }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'An unexpected error occurred')
@@ -112,7 +110,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={{ flex: 1 }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color="#F2BC2B" />
+          <ActivityIndicator color={YELLOW_DARK} />
         </View>
       </SafeAreaView>
     )
@@ -121,24 +119,78 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Profile</Text>
+        {/* Header */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Account</Text>
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={[styles.input, { backgroundColor: '#F5F5F5' }]} value={email} editable={false} />
+        </View>
 
-        <Text style={styles.label}>Name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full name" />
+        {/* Profile top */}
+        <View style={styles.profileTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileName}>{name || 'Your Name'}</Text>
+            <TouchableOpacity onPress={() => setShowEdit(!showEdit)}>
+              <Text style={styles.viewProfileText}>View profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        <Text style={styles.label}>Phone Number</Text>
-        <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="09XXXXXXXXX" keyboardType="phone-pad" />
+        {/* Editable form (moved up so it's visible in profile) */}
+        {showEdit && (
+          <View style={styles.editBlock}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput style={[styles.input, { backgroundColor: '#F5F5F5' }]} value={email} editable={false} />
 
-        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Save</Text>}
+            <Text style={styles.label}>Name</Text>
+            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full name" />
+
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="09XXXXXXXXX" keyboardType="phone-pad" />
+
+            <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Save</Text>}
+            </TouchableOpacity>
+
+          </View>
+        )}
+
+        {/* Promo banner */}
+        <View style={styles.promoCard}>
+          <Text style={styles.promoTitle}>Welcome Customer!</Text>
+          <Text style={styles.promoSub}>Favourites Again?</Text>
+        </View>
+
+        {/* Quick actions */}
+        <View style={styles.quickRow}>
+          <TouchableOpacity style={styles.quickBtn} onPress={() => router.push('/(tabs)/orders')}>
+            <MaterialIcons name="receipt-long" size={22} color="#333" />
+            <Text style={styles.quickText}>Orders</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickBtn} onPress={() => router.push('/(tabs)/favorites')}>
+            <MaterialIcons name="favorite-border" size={22} color="#333" />
+            <Text style={styles.quickText}>Favourites</Text>
+          </TouchableOpacity>
+        </View>
+
+
+
+        {/* Perks list */}
+        <View style={styles.listSection}>
+          <Text style={styles.sectionTitle}>About</Text>
+          {['Help Center', 'Report', 'Terms And Conditions', 'Invite friends'].map((t) => (
+            <TouchableOpacity key={t} style={styles.listItem} onPress={() => { /* placeholder */ }}>
+              <Text style={styles.listItemText}>{t}</Text>
+              <MaterialIcons name="chevron-right" size={20} color="#CCC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Logout visible on main account */}
+        <TouchableOpacity style={styles.logoutMainBtn} onPress={handleLogout}>
+          <Text style={styles.logoutMainText}>Logout</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   )
@@ -146,12 +198,35 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  content: { padding: 18 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 18 },
-  label: { color: '#666', marginTop: 12, marginBottom: 6 },
+  content: { padding: 18, paddingBottom: 40 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerIcon: { padding: 6 },
+  profileTop: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 12 },
+  profileName: { fontSize: 28, fontWeight: '800', color: '#111' },
+  viewProfileText: { color: '#666', marginTop: 6 },
+  profileAvatar: { width: 64, height: 64, borderRadius: 32, marginLeft: 12 },
+  promoCard: { backgroundColor: '#F8DF86', borderRadius: 12, padding: 16, marginVertical: 12 },
+  promoTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  promoSub: { color: '#fff', marginTop: 6, opacity: 0.95 },
+  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  quickBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginHorizontal: 6, borderWidth: 1, borderColor: '#EFEFEF' },
+  quickText: { marginTop: 8, fontWeight: '600' },
+  paymentCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E8E8E8' },
+  payIcon: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F0F0F0' },
+  payLabel: { fontWeight: '700' },
+  payBalance: { color: '#777', marginTop: 4 },
+  listSection: { marginTop: 18 },
+  sectionTitle: { fontWeight: '700', marginBottom: 8, color: '#222' },
+  listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  listItemText: { color: '#333' },
+  editBlock: { marginTop: 18, backgroundColor: '#FFF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#EAEAEA' },
+  label: { color: '#666', marginTop: 8, marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#E8E8E8', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 10, fontSize: 16 },
-  saveBtn: { marginTop: 20, backgroundColor: '#F2BC2B', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  saveBtn: { marginTop: 12, backgroundColor: YELLOW_DARK, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   saveText: { color: '#fff', fontWeight: '700' },
-  logoutBtn: { marginTop: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E8E8', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  logoutBtn: { marginTop: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E8E8', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   logoutText: { color: '#D9534F', fontWeight: '700' },
+  logoutMainBtn: { marginTop: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E8E8', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  logoutMainText: { color: '#D9534F', fontWeight: '700' },
 })

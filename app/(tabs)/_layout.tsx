@@ -14,6 +14,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 export default function TabLayout() {
   const colorScheme = useColorScheme()
   const [activeTab, setActiveTab] = useState("home")
+  // no image/avatar state — we always show the profile icon
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { cartItems } = useCart()
@@ -22,9 +23,12 @@ export default function TabLayout() {
   useEffect(() => {
     const pathname = router.asPath ?? ''
     if (pathname.includes('/cart')) setActiveTab('cart')
+    else if (pathname.includes('/profile')) setActiveTab('profile')
     else if (pathname.includes('/favorites')) setActiveTab('favorites')
     else setActiveTab('home')
   }, [router.asPath])
+
+  // no user load effect — icon only
 
   const YELLOW_DARK = "#F2BC2B"
   const YELLOW_LIGHT = "#F8DF86"
@@ -49,7 +53,7 @@ export default function TabLayout() {
       </Tabs>
 
       {/* Custom Bottom Navigation */}
-      <View style={[styles.bottomNav, { paddingBottom: 14 + insets.bottom }]}>
+      <View style={[styles.bottomNav, { paddingBottom: 14 + insets.bottom, backgroundColor: '#FFFFFF', borderTopWidth: 0 }]}>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => {
@@ -82,14 +86,14 @@ export default function TabLayout() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => {
-            setActiveTab("favorites")
-            router.push('/(tabs)/favorites')
+            setActiveTab("profile")
+            router.push('/(tabs)/profile')
           }}
         >
-          <View style={[styles.navIcon, activeTab === "favorites" && styles.activeNavIcon]}>
-            <IconSymbol size={24} name="heart.fill" color={activeTab === "favorites" ? YELLOW_DARK : "#999"} />
+          <View style={[styles.navIcon, activeTab === "profile" && styles.activeNavIcon]}>
+            <IconSymbol size={20} name="person.fill" color={activeTab === "profile" ? YELLOW_DARK : '#999'} />
           </View>
-          <Text style={[styles.navLabel, activeTab === "favorites" && styles.activeNavLabel]}>Favorites</Text>
+          <Text style={[styles.navLabel, activeTab === "profile" && styles.activeNavLabel]}>Account</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -160,5 +164,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "bold",
+  },
+  profileAvatarSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  profileInitialsWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

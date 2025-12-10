@@ -125,10 +125,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
         </View>
-
-        <TouchableOpacity style={styles.avatar} activeOpacity={0.7} onPress={() => { setLocationDropdownOpen(false); router.push("/(tabs)/profile") }}>
-          <Image source={require("@/assets/images/user.png")} style={{ width: 24, height: 24 }} contentFit="contain" />
-        </TouchableOpacity>
       </View>
 
       {locationDropdownOpen && (

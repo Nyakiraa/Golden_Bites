@@ -2,7 +2,6 @@
 
 import { useCart } from "@/app/context/CartContext"
 import { useRouter } from "expo-router"
-import { useCallback } from "react"
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 
 const YELLOW_LIGHT = "#F8DF86"
@@ -16,23 +15,12 @@ export default function CartScreen() {
   const deliveryFee = 25
   const total = subtotal + deliveryFee
 
-  const handleIncreaseQty = useCallback((itemId: string) => {
-    const item = cartItems.find(i => i.id === itemId)
-    if (item) {
-      updateQuantity(itemId, item.qty + 1)
+  const handleCheckout = () => {
+    if (cartItems.length === 0) {
+      return
     }
-  }, [cartItems, updateQuantity])
-
-  const handleDecreaseQty = useCallback((itemId: string) => {
-    const item = cartItems.find(i => i.id === itemId)
-    if (item && item.qty > 1) {
-      updateQuantity(itemId, item.qty - 1)
-    }
-  }, [cartItems, updateQuantity])
-
-  const handleRemoveItem = useCallback((itemId: string) => {
-    removeFromCart(itemId)
-  }, [removeFromCart])
+    router.push("/(tabs)/checkout")
+  }
 
   return (
     <View style={styles.bg}>
@@ -109,7 +97,11 @@ export default function CartScreen() {
 
       {cartItems.length > 0 && (
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.replace("/checkout")}>
+          <TouchableOpacity 
+            style={[styles.checkoutBtn, cartItems.length === 0 && styles.checkoutBtnDisabled]} 
+            onPress={handleCheckout}
+            disabled={cartItems.length === 0}
+          >
             <Text style={styles.checkoutBtnText}>Go to Checkout</Text>
           </TouchableOpacity>
         </View>
@@ -276,6 +268,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  checkoutBtnDisabled: {
+    opacity: 0.6,
   },
   emptyContainer: {
     paddingVertical: 60,

@@ -58,6 +58,7 @@ export default function StallDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [avatarLayout, setAvatarLayout] = useState<{ y: number; height: number } | null>(null)
 
   // Fetch stall ID and foods function
   const fetchStallAndFoods = useCallback(async () => {
@@ -603,7 +604,8 @@ export default function StallDashboard() {
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.avatarButton}
-            onPress={() => setShowUserMenu(true)}
+            onLayout={(e) => setAvatarLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
+            onPress={() => setShowUserMenu(!showUserMenu)}
           >
             <Image source={require("@/assets/images/user.png")} style={{ width: 24, height: 24 }} contentFit="contain" />
           </TouchableOpacity>
@@ -616,19 +618,14 @@ export default function StallDashboard() {
       {/* Order Details Modal */}
       {renderOrderDetailsModal()}
 
-      {/* User Menu Modal */}
-      <Modal
-        visible={showUserMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowUserMenu(false)}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
+      {/* User Menu Floating Dropdown */}
+      {showUserMenu && (
+        <TouchableOpacity 
+          style={[styles.dropdownOverlay, { top: avatarLayout ? avatarLayout.y + avatarLayout.height + 8 : 60 }]} 
           activeOpacity={1}
           onPress={() => setShowUserMenu(false)}
         >
-          <View style={styles.menuContainer}>
+          <View style={styles.userMenuDropdown}>
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
@@ -644,11 +641,11 @@ export default function StallDashboard() {
               onPress={handleLogout}
             >
               <MaterialIcons name="logout" size={20} color="#FF5252" />
-              <Text style={styles.menuItemText}>Logout</Text>
+              <Text style={[styles.menuItemText, { color: "#FF5252" }]}>Logout</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Modal>
+      )}
 
       {/* Bottom Navigation Bar */}
       <View style={styles.bottomNav}>
@@ -1312,6 +1309,23 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingTop: 60,
     paddingRight: 18,
+  },
+  dropdownOverlay: {
+    position: "absolute",
+    right: 18,
+    zIndex: 999,
+  },
+  userMenuDropdown: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 8,
+    minWidth: 160,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
   },
   menuContainer: {
     backgroundColor: "#FFFFFF",
