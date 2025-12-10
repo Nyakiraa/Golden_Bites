@@ -74,6 +74,11 @@ export default function SignInScreen() {
     }
   };
 
+  const handleGbox = async () => {
+    // Simplified: navigate to home tabs for now
+    router.replace('/(tabs)')
+  }
+
   return (
     <View style={styles.container}>
       {/* Yellow top section */}
@@ -167,7 +172,7 @@ export default function SignInScreen() {
             <View style={styles.separatorLine} />
           </View>
 
-           <TouchableOpacity style={styles.googleButton}>
+           <TouchableOpacity style={styles.googleButton} onPress={handleGbox} disabled={loading}>
              <View style={styles.googleIcon}>
                <Image
                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}

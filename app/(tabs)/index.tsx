@@ -1,29 +1,157 @@
 "use client"
 
 import { IconSymbol } from "@/components/ui/icon-symbol"
+import { supabase } from '@/lib/supabase'
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 export default function HomeScreen() {
   const router = useRouter()
+  const ADNU_LOCATIONS = [
+    'Engineering Building',
+    'SHS Bldg.',
+    'H.E Building',
+    'Xavier Hall',
+    'Main Gate',
+    'PHELAN',
+    'DOLAN',
+    'ADRIATICO',
+    'SANTOS',
+    'ADMINISTRATION BUILDING',
+    'BURNS',
+    'MARDRIGAL BLDG',
+    'ALINGAL',
+    'COVERT COURT',
+    'JESUIT RESIDENCE',
+  ]
+  const [selectedLocation, setSelectedLocation] = useState<string>('ADNU Campus')
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false)
+  const [headerLayout, setHeaderLayout] = useState<{ y: number; height: number } | null>(null)
+  const [popularMeals, setPopularMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [restaurants, setRestaurants] = useState<any[]>([])
+  const [loadingRestaurants, setLoadingRestaurants] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    const fetchPopular = async () => {
+      try {
+        // Try to read from public_foods view which returns available foods joined with stall
+        const { data, error } = await supabase.from('public_foods').select('*').order('display_order', { ascending: true }).limit(8)
+        if (error) {
+          console.warn('Failed to fetch popular meals', error)
+        }
+        if (mounted) {
+          setPopularMeals((data ?? []).map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            serving: d.category ?? '',
+            price: Number(d.price),
+            image: d.image_url,
+            stall_name: d.stall_name,
+          })))
+        }
+      } catch (e) {
+        console.warn('Error fetching popular meals', e)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    fetchPopular()
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    const fetchStalls = async () => {
+      try {
+        setLoadingRestaurants(true)
+        const { data, error } = await supabase.from('stalls').select('id, name, rating, location').eq('is_active', true).order('name', { ascending: true }).limit(20)
+        if (error) {
+          console.warn('Failed to fetch stalls', error)
+          if (mounted) setRestaurants([])
+          return
+        }
+
+        if (!mounted) return
+
+        const mapped = (data ?? []).map((s: any) => {
+          // Derive a local image key if the name matches a known asset
+          const nameLower = (s.name || '').toLowerCase()
+          const imageKey = Object.keys(LOCAL_IMAGES).find((k) => nameLower.includes(k.replace('.png', '').replace('_', ' ')))
+
+          return {
+            id: s.id,
+            name: s.name,
+            rating: Number(s.rating) || 0,
+            time: 20,
+            fee: 15,
+            cuisines: [],
+            tag: '',
+            image: imageKey ?? 'RC.png',
+            location: s.location,
+          }
+        })
+
+        setRestaurants(mapped)
+      } catch (e) {
+        console.warn('Error fetching stalls', e)
+        if (mounted) setRestaurants([])
+      } finally {
+        if (mounted) setLoadingRestaurants(false)
+      }
+    }
+
+    fetchStalls()
+    return () => { mounted = false }
+  }, [])
   return (
     <SafeAreaView style={styles.container}>
       {/* Header: address + profile */}
-      <View style={styles.header}>
+      <View style={styles.header} onLayout={(e) => setHeaderLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}>
         <View style={styles.addressContainer}>
           <Text style={styles.deliveryTo}>Deliver to</Text>
-          <View style={styles.addressRow}>
-            <Text style={styles.addressText}>ADNU Campus</Text>
-            <Text style={styles.chevron}>▾</Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setLocationDropdownOpen(!locationDropdownOpen)}
+            style={styles.addressRowTouchable}
+          >
+            <Text style={styles.addressText}>{selectedLocation}</Text>
+            <Text style={[styles.chevron, locationDropdownOpen && { transform: [{ rotate: '180deg' }] }]}>▾</Text>
+          </TouchableOpacity>
+
         </View>
 
-        <TouchableOpacity style={styles.avatar} activeOpacity={0.7} onPress={() => router.replace("/welcome")}>
+        <TouchableOpacity style={styles.avatar} activeOpacity={0.7} onPress={() => { setLocationDropdownOpen(false); router.push("/(tabs)/profile") }}>
           <Image source={require("@/assets/images/user.png")} style={{ width: 24, height: 24 }} contentFit="contain" />
         </TouchableOpacity>
       </View>
+
+      {locationDropdownOpen && (
+        <TouchableOpacity activeOpacity={1} style={[styles.dropdownOverlay, { top: headerLayout ? headerLayout.y + headerLayout.height : 70 }]} onPress={() => setLocationDropdownOpen(false)}>
+          <View style={styles.locationDropdownAbsolute}>
+            <ScrollView style={styles.locationScroll} contentContainerStyle={{ paddingVertical: 4 }}>
+              {ADNU_LOCATIONS.map((loc, idx) => (
+                <TouchableOpacity
+                  key={loc}
+                  style={[styles.locationItem, idx === ADNU_LOCATIONS.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setSelectedLocation(loc)
+                    setLocationDropdownOpen(false)
+                  }}
+                >
+                  <Text style={styles.locationText}>{loc}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      )}
+      
 
       {/* Search */}
       <View style={styles.searchBar}>
@@ -45,20 +173,26 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Popular meals</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popularList}>
-          {POPULAR_MEALS.map((m) => (
-            <TouchableOpacity key={m.id} style={styles.popularCard} activeOpacity={0.85}>
-              <Image source={{ uri: m.image }} style={styles.popularImage} />
-              <View style={styles.popularBody}>
-                <Text style={styles.popularName} numberOfLines={1}>
-                  {m.name}
-                </Text>
-                <Text style={styles.popularMeta}>{m.serving}</Text>
-                <Text style={styles.popularPrice}>₱{m.price}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={{ paddingHorizontal: 18, paddingVertical: 8 }}>
+            <ActivityIndicator color={YELLOW_DARK} />
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popularList}>
+            {popularMeals.map((m) => (
+              <TouchableOpacity key={m.id} style={styles.popularCard} activeOpacity={0.85}>
+                <Image source={{ uri: m.image }} style={styles.popularImage} />
+                <View style={styles.popularBody}>
+                  <Text style={styles.popularName} numberOfLines={1}>
+                    {m.name}
+                  </Text>
+                  <Text style={styles.popularMeta}>{m.serving}</Text>
+                  <Text style={styles.popularPrice}>₱{m.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Featured near you */}
         <View style={styles.sectionHeader}>
@@ -66,37 +200,43 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.cardList}>
-          {MOCK_RESTAURANTS.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              style={styles.card}
-              activeOpacity={0.85}
-              onPress={() => router.push({ pathname: "/restaurant", params: r })}
-            >
-              <Image
-                source={LOCAL_IMAGES[r.image] ?? (typeof r.image === "string" && r.image.startsWith("http") ? { uri: r.image } : undefined)}
-                style={styles.cardImage}
-              />
-              {r.tag && (
-                <View style={styles.offerTag}>
-                  <Text style={styles.offerText}>{r.tag}</Text>
+          {loadingRestaurants ? (
+            <View style={{ paddingHorizontal: 18 }}>
+              <ActivityIndicator color={YELLOW_DARK} />
+            </View>
+          ) : (
+            restaurants.map((r) => (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.card}
+                activeOpacity={0.85}
+                onPress={() => router.push({ pathname: "/restaurant", params: r })}
+              >
+                <Image
+                  source={LOCAL_IMAGES[r.image] ?? (typeof r.image === "string" && r.image.startsWith("http") ? { uri: r.image } : undefined)}
+                  style={styles.cardImage}
+                />
+                {r.tag && (
+                  <View style={styles.offerTag}>
+                    <Text style={styles.offerText}>{r.tag}</Text>
+                  </View>
+                )}
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle}>{r.name}</Text>
+                  <View style={styles.cardMetaRow}>
+                    <Text style={styles.rating}>★ {r.rating.toFixed(1)}</Text>
+                    <Text style={styles.dot}>·</Text>
+                    <Text style={styles.metaText}>{r.time} min</Text>
+                    <Text style={styles.dot}>·</Text>
+                    <Text style={styles.metaText}>₱{r.fee} fee</Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.cuisines}>
+                    {r.cuisines.join(" • ")}
+                  </Text>
                 </View>
-              )}
-              <View style={styles.cardBody}>
-                <Text style={styles.cardTitle}>{r.name}</Text>
-                <View style={styles.cardMetaRow}>
-                  <Text style={styles.rating}>★ {r.rating.toFixed(1)}</Text>
-                  <Text style={styles.dot}>·</Text>
-                  <Text style={styles.metaText}>{r.time} min</Text>
-                  <Text style={styles.dot}>·</Text>
-                  <Text style={styles.metaText}>₱{r.fee} fee</Text>
-                </View>
-                <Text numberOfLines={1} style={styles.cuisines}>
-                  {r.cuisines.join(" • ")}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          )}
         </View>
         {/* Button for Cart navigation for demo */}
         <TouchableOpacity style={styles.demoCartBtn} onPress={() => router.push("/cart")}>
@@ -124,159 +264,7 @@ const LOCAL_IMAGES: Record<string, any> = {
   "bitebox.png": require("@/assets/images/bitebox.png"),
 }
 
-const POPULAR_MEALS = [
-  {
-    id: "pm1",
-    name: "Chicken Fillet Rice Bowl",
-    serving: "with gravy",
-    price: 99,
-    image: "https://images.unsplash.com/photo-1606756790138-261d2b21cd30?w=1200&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "pm2",
-    name: "Classic Burger Meal",
-    serving: "fries + drink",
-    price: 149,
-    image: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1200&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "pm3",
-    name: "Pancit Canton",
-    serving: "special",
-    price: 89,
-    image: "https://images.unsplash.com/photo-1542442828-2872197443a5?w=1200&q=80&auto=format&fit=crop",
-  },
-  {
-    id: "pm4",
-    name: "Iced Caramel Latte",
-    serving: "medium",
-    price: 95,
-    image: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=1200&q=80&auto=format&fit=crop",
-  },
-]
 
-const MOCK_RESTAURANTS = [
-  {
-    id: "1",
-    name: "Bam Bam's",
-    rating: 4.6,
-    time: 25,
-    fee: 19,
-    cuisines: ["Filipino", "Fast Food"],
-    tag: "20% OFF",
-    image: "bambam.png",
-  },
-  {
-    id: "2",
-    name: "Puting Bahay Eatery",
-    rating: 4.8,
-    time: 18,
-    fee: 15,
-    cuisines: ["Home-Cooked", "Filipino"],
-    tag: "BUY 1 GET 1",
-    image: "puting_bahay.png",
-  },
-  {
-    id: "3",
-    name: "RC Food Stall",
-    rating: 4.5,
-    time: 30,
-    fee: 25,
-    cuisines: ["Street Food", "Filipino"],
-    tag: "",
-    image: "RC.png",
-  },
-  {
-    id: "4",
-    name: "NOMO House of Sizzlers",
-    rating: 4.7,
-    time: 16,
-    fee: 10,
-    cuisines: ["Grill", "Sizzlers"],
-    tag: "FREE DRINK",
-    image: "NOMO.png",
-  },
-  {
-    id: "5",
-    name: "Noodle House",
-    rating: 4.8,
-    time: 14,
-    fee: 12,
-    cuisines: ["Asian", "Noodles"],
-    tag: "BUY 2 GET 1",
-    image: "noodle_house.png",
-  },
-  {
-    id: "6",
-    name: "Kuya's Platter",
-    rating: 4.4,
-    time: 28,
-    fee: 20,
-    cuisines: ["Filipino", "Plates"],
-    tag: "",
-    image: "kuya_platter.png",
-  },
-  {
-    id: "7",
-    name: "Cocina Grill and Restaurant",
-    rating: 4.7,
-    time: 26,
-    fee: 22,
-    cuisines: ["Grill", "International"],
-    tag: "10% OFF",
-    image: "cocina.png",
-  },
-  {
-    id: "8",
-    name: "JBI Food Stop",
-    rating: 4.9,
-    time: 20,
-    fee: 10,
-    cuisines: ["Snacks", "Fast Food"],
-    tag: "BEST SELLER",
-    image: "JBI.png",
-  },
-  {
-    id: "9",
-    name: "Kuya Kim Cuisine",
-    rating: 4.5,
-    time: 22,
-    fee: 18,
-    cuisines: ["Filipino", "Comfort"],
-    tag: "",
-    image: "kuyakim.png",
-  },
-  {
-    id: "10",
-    name: "Tap Tap",
-    rating: 4.6,
-    time: 15,
-    fee: 8,
-    cuisines: ["Street Food", "Snacks"],
-    tag: "FREE DELIVERY",
-    image: "taptap.png",
-  },
-  {
-    id: "11",
-    name: "Flavorful Fiesta",
-    rating: 4.8,
-    time: 24,
-    fee: 20,
-    cuisines: ["Fiesta", "Party"],
-    tag: "",
-    image: "flavorful_fiesta.png",
-  },
-  {
-    id: "12",
-    name: "Bite Box",
-    rating: 4.4,
-    time: 27,
-    fee: 18,
-    cuisines: ["Meals", "Drinks"],
-    tag: "15% OFF",
-    image: "bitebox.png",
-  },
-]
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
@@ -349,6 +337,35 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 19, fontWeight: "700", color: "#1a1a1a", letterSpacing: 0.2 },
   sectionLink: { color: "#F2BC2B", fontWeight: "600", fontSize: 14 },
+
+  addressRowTouchable: { flexDirection: 'row', alignItems: 'center' },
+  locationDropdown: { marginTop: 8, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E8E8', overflow: 'hidden' },
+  locationItem: { paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  locationText: { color: '#333' },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+  },
+  locationDropdownAbsolute: {
+    marginHorizontal: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  locationScroll: {
+    maxHeight: 260,
+  },
 
   popularList: { paddingHorizontal: 18, marginBottom: 12 },
   popularCard: {

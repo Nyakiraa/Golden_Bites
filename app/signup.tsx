@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function SignUpScreen() {
   const [fontsLoaded] = useFonts({
@@ -89,6 +89,11 @@ export default function SignUpScreen() {
       setLoading(false);
     }
   };
+
+  const handleGbox = async () => {
+    // Simplified: navigate to home tabs for now
+    router.replace('/(tabs)')
+  }
 
   return (
     <View style={styles.container}>
@@ -203,6 +208,17 @@ export default function SignUpScreen() {
             ) : (
               <Text style={styles.signUpButtonText}>Sign Up</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.googleButton} onPress={handleGbox} disabled={loading}>
+            <View style={styles.googleIcon}>
+              <Image
+                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                style={styles.googleLogoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.googleText}>Continue with ADNU GBOX</Text>
           </TouchableOpacity>
 
           <View style={styles.loginRow}>
@@ -407,6 +423,32 @@ const styles = StyleSheet.create({
   },
   signUpButtonDisabled: {
     opacity: 0.6,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 15,
+    backgroundColor: '#FFFFFF',
+    marginTop: 12,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  googleLogoImage: {
+    width: 20,
+    height: 20,
+  },
+  googleText: {
+    fontSize: 16,
+    color: '#000000',
   },
   loginRow: {
     flexDirection: 'row',
