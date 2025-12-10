@@ -1,7 +1,7 @@
 "use client"
 
 import { useCart } from '@/app/context/CartContext'
-import { Tabs, useRouter } from "expo-router"
+import { Tabs, usePathname, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -17,16 +17,18 @@ export default function TabLayout() {
   // no image/avatar state — we always show the profile icon
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const pathname = usePathname()
   const { cartItems } = useCart()
 
   // Sync active tab based on route pathname when the layout mounts
   useEffect(() => {
-    const pathname = router.asPath ?? ''
-    if (pathname.includes('/cart')) setActiveTab('cart')
-    else if (pathname.includes('/profile')) setActiveTab('profile')
-    else if (pathname.includes('/favorites')) setActiveTab('favorites')
+    const currentPath = pathname ?? ''
+    if (currentPath.includes('/orders')) setActiveTab('orders')
+    else if (currentPath.includes('/cart')) setActiveTab('cart')
+    else if (currentPath.includes('/profile')) setActiveTab('profile')
+    else if (currentPath.includes('/favorites')) setActiveTab('favorites')
     else setActiveTab('home')
-  }, [router.asPath])
+  }, [pathname])
 
   // no user load effect — icon only
 
@@ -48,6 +50,13 @@ export default function TabLayout() {
           options={{
             title: "Home",
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="orders"
+          options={{
+            title: "Orders",
+            tabBarIcon: ({ color }) => <IconSymbol size={24} name="clock.fill" color={color} />,
           }}
         />
       </Tabs>

@@ -118,9 +118,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: "700",
     fontSize: 22,
-    marginBottom: 16,
+    marginTop: 24,
+    marginBottom: 18,
     color: "#1a1a1a",
     letterSpacing: 0.2,
+    textAlign: "center",
   },
   itemCard: {
     backgroundColor: "#FFFFFF",
