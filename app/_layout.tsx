@@ -18,7 +18,6 @@ export default function RootLayout() {
   const [isStallOwner, setIsStallOwner] = useState(false);
   const router = useRouter();
   const segments = useSegments();
-
   useEffect(() => {
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {

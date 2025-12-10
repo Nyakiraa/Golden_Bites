@@ -204,52 +204,54 @@ export default function RestaurantScreen() {
                 </View>
               </View>
 
-              {/* Quantity Selector */}
-              <View style={styles.quantityContainer}>
+              <View style={styles.actionColumn}>
+                {/* Quantity Selector */}
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity 
+                    style={styles.qtyBtn}
+                    onPress={() => {
+                      const current = getQuantity(item.id)
+                      if (current > 1) {
+                        setQuantities({ ...quantities, [item.id]: current - 1 })
+                      }
+                    }}
+                  >
+                    <Text style={styles.qtyBtnText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.qtyText}>{getQuantity(item.id)}</Text>
+                  <TouchableOpacity 
+                    style={styles.qtyBtn}
+                    onPress={() => {
+                      const current = getQuantity(item.id)
+                      setQuantities({ ...quantities, [item.id]: current + 1 })
+                    }}
+                  >
+                    <Text style={styles.qtyBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity 
-                  style={styles.qtyBtn}
+                  style={[styles.addBtn, !item.is_available && styles.addBtnDisabled]} 
                   onPress={() => {
-                    const current = getQuantity(item.id)
-                    if (current > 1) {
-                      setQuantities({ ...quantities, [item.id]: current - 1 })
+                    if (item.is_available) {
+                      // Add item to cart with selected quantity
+                      addToCart({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        qty: getQuantity(item.id),
+                        image_url: item.image_url ?? undefined,
+                        image_data: item.image_data ?? undefined,
+                      })
+                      // Reset quantity for this item
+                      setQuantities({ ...quantities, [item.id]: 1 })
                     }
                   }}
+                  disabled={!item.is_available}
                 >
-                  <Text style={styles.qtyBtnText}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.qtyText}>{getQuantity(item.id)}</Text>
-                <TouchableOpacity 
-                  style={styles.qtyBtn}
-                  onPress={() => {
-                    const current = getQuantity(item.id)
-                    setQuantities({ ...quantities, [item.id]: current + 1 })
-                  }}
-                >
-                  <Text style={styles.qtyBtnText}>+</Text>
+                  <Text style={styles.addBtnText}>{item.is_available ? "Add" : "Unavailable"}</Text>
                 </TouchableOpacity>
               </View>
-
-              <TouchableOpacity 
-                style={[styles.addBtn, !item.is_available && styles.addBtnDisabled]} 
-                onPress={() => {
-                  if (item.is_available) {
-                    // Add item to cart with selected quantity
-                    addToCart({
-                      id: item.id,
-                      name: item.name,
-                      price: item.price,
-                      qty: getQuantity(item.id),
-                      image_url: item.image_url ?? undefined,
-                      image_data: item.image_data ?? undefined,
-                    })
-                    // Reset quantity for this item
-                    setQuantities({ ...quantities, [item.id]: 1 })
-                  }
-                }}
-                disabled={!item.is_available}
-              >
-                <Text style={styles.addBtnText}>{item.is_available ? "Add" : "Unavailable"}</Text>
-              </TouchableOpacity>
             </View>
             ))}
 
@@ -367,6 +369,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 2,
+    marginTop: 8,
   },
   addBtnText: {
     color: "#fff",
@@ -376,6 +379,11 @@ const styles = StyleSheet.create({
   },
   addBtnDisabled: {
     opacity: 0.5,
+  },
+  actionColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
   loadingContainer: {
     paddingVertical: 40,
