@@ -22,9 +22,10 @@ interface MenuItem {
 export default function RestaurantScreen() {
   const params = useLocalSearchParams()
   const router = useRouter()
-  const { addToCart } = useCart()
+  const { addToCart, setStallId } = useCart()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentStallId, setCurrentStallId] = useState<string | null>(null)
   const name = Array.isArray(params.name) ? params.name[0] : (params.name ?? "")
   const image = Array.isArray(params.image) ? params.image[0] : (params.image ?? "")
   const tag = Array.isArray(params.tag) ? params.tag[0] : (params.tag ?? "")
@@ -32,16 +33,22 @@ export default function RestaurantScreen() {
   const fee = Array.isArray(params.fee) ? params.fee[0] : (params.fee ?? "")
   const time = Array.isArray(params.time) ? params.time[0] : (params.time ?? "")
 
-  // Fetch menu items for RC Food Stall
+  // Fetch menu items for the selected stall
   const fetchMenuItems = useCallback(async () => {
     try {
       setLoading(true)
       
-      // Fetch the RC FOOD STALL first
+      // Return early if no stall name provided
+      if (!name) {
+        setMenuItems([])
+        return
+      }
+      
+      // Fetch the stall by the name passed from params
       const { data: stallData, error: stallError } = await supabase
         .from("stalls")
         .select("id")
-        .eq("name", "RC FOOD STALL")
+        .eq("name", name)
         .eq("is_active", true)
         .single()
 
@@ -50,6 +57,10 @@ export default function RestaurantScreen() {
         setMenuItems([])
         return
       }
+
+      // Store the stall ID and set it in cart context
+      setCurrentStallId(stallData.id)
+      setStallId(stallData.id)
 
       // Fetch menu items for this stall
       const { data: foodsData, error: foodsError } = await supabase
@@ -72,7 +83,7 @@ export default function RestaurantScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [name, setStallId])
 
   useEffect(() => {
     fetchMenuItems()
@@ -152,8 +163,8 @@ export default function RestaurantScreen() {
                           name: item.name,
                           price: item.price,
                           qty: 1,
-                          image_url: item.image_url,
-                          image_data: item.image_data,
+                          image_url: item.image_url ?? undefined,
+                          image_data: item.image_data ?? undefined,
                         })
                         
                         // Show confirmation alert

@@ -11,7 +11,7 @@ const YELLOW_DARK = "#F2BC2B"
 
 export default function CheckoutScreen() {
   const router = useRouter()
-  const { cartItems } = useCart()
+  const { cartItems, stallId } = useCart()
   const [loading, setLoading] = useState(false)
   const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0)
   const deliveryFee = 25
@@ -29,22 +29,10 @@ export default function CheckoutScreen() {
         return
       }
 
-      // TODO: Get stall_id from cart context or route params
-      // For now, we'll try to find RC FOOD STALL as a default
-      let stallId = STALL_ID
+      // Get stall_id from cart context
       if (!stallId) {
-        const { data: stallData } = await supabase
-          .from("stalls")
-          .select("id")
-          .eq("name", "RC FOOD STALL")
-          .eq("is_active", true)
-          .single()
-        
-        if (!stallData) {
-          Alert.alert("Error", "Stall not found. Please try again.")
-          return
-        }
-        stallId = stallData.id
+        Alert.alert("Error", "No stall selected. Please select a stall and try again.")
+        return
       }
 
       // Check if cart is empty

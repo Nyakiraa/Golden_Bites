@@ -7,21 +7,25 @@ export interface CartItem {
   qty: number
   image_url?: string
   image_data?: string
+  stall_id?: string
 }
 
 interface CartContextType {
   cartItems: CartItem[]
+  stallId: string | null
   addToCart: (item: CartItem) => void
   removeFromCart: (itemId: string) => void
   updateQuantity: (itemId: string, qty: number) => void
   clearCart: () => void
   getTotalPrice: () => number
+  setStallId: (stallId: string) => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [stallId, setStallId] = useState<string | null>(null)
 
   const addToCart = useCallback((item: CartItem) => {
     setCartItems(prevItems => {
@@ -65,11 +69,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     <CartContext.Provider
       value={{
         cartItems,
+        stallId,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
         getTotalPrice,
+        setStallId,
       }}
     >
       {children}
