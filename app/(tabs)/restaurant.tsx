@@ -1,7 +1,6 @@
 "use client"
 
 import { useCart } from "@/app/context/CartContext"
-import { IconSymbol } from '@/components/ui/icon-symbol'
 import { supabase } from "@/lib/supabase"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
@@ -23,10 +22,10 @@ interface MenuItem {
 export default function RestaurantScreen() {
   const params = useLocalSearchParams()
   const router = useRouter()
-  const { addToCart, toggleFavorite, isFavorited } = useCart()
+  const { addToCart, setStallId } = useCart()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [stallId, setStallId] = useState<string | null>(null)
+  const [currentStallId, setCurrentStallId] = useState<string | null>(null)
   const name = Array.isArray(params.name) ? params.name[0] : (params.name ?? "")
   const image = Array.isArray(params.image) ? params.image[0] : (params.image ?? "")
   const tag = Array.isArray(params.tag) ? params.tag[0] : (params.tag ?? "")
@@ -34,16 +33,22 @@ export default function RestaurantScreen() {
   const fee = Array.isArray(params.fee) ? params.fee[0] : (params.fee ?? "")
   const time = Array.isArray(params.time) ? params.time[0] : (params.time ?? "")
 
-  // Fetch menu items for RC Food Stall
+  // Fetch menu items for the selected stall
   const fetchMenuItems = useCallback(async () => {
     try {
       setLoading(true)
       
-      // Fetch the RC FOOD STALL first
+      // Return early if no stall name provided
+      if (!name) {
+        setMenuItems([])
+        return
+      }
+      
+      // Fetch the stall by the name passed from params
       const { data: stallData, error: stallError } = await supabase
         .from("stalls")
         .select("id")
-        .eq("name", "RC FOOD STALL")
+        .eq("name", name)
         .eq("is_active", true)
         .single()
 
@@ -52,6 +57,9 @@ export default function RestaurantScreen() {
         setMenuItems([])
         return
       }
+
+      // Store the stall ID and set it in cart context
+      setCurrentStallId(stallData.id)
       setStallId(stallData.id)
 
       // Fetch menu items for this stall
@@ -75,7 +83,7 @@ export default function RestaurantScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [name, setStallId])
 
   useEffect(() => {
     fetchMenuItems()
@@ -115,18 +123,6 @@ export default function RestaurantScreen() {
             {tag ? String(tag) + " | " : ""}★ {String(rating)} ₱{String(fee)} delivery • {String(time)} min
           </Text>
         </View>
-        {/* Stall-level favorite button (top-right) */}
-        <View style={styles.bannerActions}>
-          <TouchableOpacity
-            style={styles.heartBtnBanner}
-            onPress={() => {
-              if (!stallId) return
-              toggleFavorite({ id: stallId, name: String(name), image_url: String(image) })
-            }}
-          >
-            <IconSymbol name={isFavorited(stallId ?? '') ? 'heart.fill' : 'heart'} size={18} color={isFavorited(stallId ?? '') ? '#FF5252' : '#CCCCCC'} />
-          </TouchableOpacity>
-        </View>
       </View>
       {/* Menu List */}
       <View style={{ padding: 18 }}>
@@ -152,50 +148,49 @@ export default function RestaurantScreen() {
                   <Text style={{ color: "#999" }}>No Image</Text>
                 </View>
               )}
-                <View style={{ flex: 1, marginLeft: 14 }}>
+              <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={styles.menuName}>{item.name}</Text>
                 {item.description && <Text style={styles.menuDesc}>{item.description}</Text>}
-                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10, justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
                   <Text style={styles.menuPrice}>₱{Number(item.price).toFixed(2)}</Text>
-                  {/* item-level favorite removed — favorites are per-stall now */}
+                  <TouchableOpacity 
+                    style={[styles.addBtn, !item.is_available && styles.addBtnDisabled]} 
+                    onPress={() => {
+                      if (item.is_available) {
+                        // Add item to cart with quantity 1
+                        addToCart({
+                          id: item.id,
+                          name: item.name,
+                          price: item.price,
+                          qty: 1,
+                          image_url: item.image_url ?? undefined,
+                          image_data: item.image_data ?? undefined,
+                        })
+                        
+                        // Show confirmation alert
+                        Alert.alert(
+                          "Added to Cart",
+                          `${item.name} has been added to your cart`,
+                          [
+                            {
+                              text: "Continue Shopping",
+                              style: "default",
+                            },
+                            {
+                              text: "Go to Cart",
+                              style: "default",
+                              onPress: () => router.push("/(tabs)/cart"),
+                            },
+                          ]
+                        )
+                      }
+                    }}
+                    disabled={!item.is_available}
+                  >
+                    <Text style={styles.addBtnText}>{item.is_available ? "Add" : "Unavailable"}</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              <TouchableOpacity 
-                style={[styles.addBtn, !item.is_available && styles.addBtnDisabled]} 
-                onPress={() => {
-                  if (item.is_available) {
-                    // Add item to cart with quantity 1
-                    addToCart({
-                      id: item.id,
-                      name: item.name,
-                      price: item.price,
-                      qty: 1,
-                      image_url: item.image_url,
-                      image_data: item.image_data,
-                    })
-                    
-                    // Show confirmation alert
-                    Alert.alert(
-                      "Added to Cart",
-                      `${item.name} has been added to your cart`,
-                      [
-                        {
-                          text: "Continue Shopping",
-                          style: "default",
-                        },
-                        {
-                          text: "Go to Cart",
-                          style: "default",
-                          onPress: () => router.push("/(tabs)/cart"),
-                        },
-                      ]
-                    )
-                  }
-                }}
-                disabled={!item.is_available}
-              >
-                <Text style={styles.addBtnText}>{item.is_available ? "Add" : "Unavailable"}</Text>
-              </TouchableOpacity>
             </View>
           ))
         )}
@@ -276,17 +271,7 @@ const styles = StyleSheet.create({
     color: YELLOW_DARK,
     fontSize: 18,
     fontWeight: "bold",
-  },
-  heartBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFE5E5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heartIcon: {
-    fontSize: 18,
+    marginRight: 12,
   },
   addBtn: {
     borderRadius: 10,
@@ -327,18 +312,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#999",
-  },
-  bannerActions: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-  },
-  heartBtnBanner: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFE5E5',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 })

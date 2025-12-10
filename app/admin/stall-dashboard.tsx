@@ -1051,7 +1051,6 @@ const styles = StyleSheet.create({
     backgroundColor: YELLOW_DARK,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 8,
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 4,
