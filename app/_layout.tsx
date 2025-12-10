@@ -3,9 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import Loading from '@/components/ui/loading';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { CartProvider } from './context/CartContext';
@@ -94,26 +92,19 @@ export default function RootLayout() {
   return (
     <CartProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <SafeAreaProvider>
-          {isAuthenticated === null ? (
-            <Loading message="Checking session..." />
-          ) : (
-            <>
-              <Stack>
-                <Stack.Screen name="welcome" options={{ headerShown: false }} />
-                <Stack.Screen name="signin" options={{ headerShown: false }} />
-                <Stack.Screen name="signup" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                <Stack.Screen name="admin/stall-dashboard" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/add-item" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/manage-menu" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/edit-item" options={{ headerShown: false }} />
-              </Stack>
-              <StatusBar style="auto" />
-            </>
-          )}
-        </SafeAreaProvider>
+        <Stack>
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="signin" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="admin/stall-dashboard" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/add-item" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/manage-menu" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/edit-item" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/profile" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="auto" />
       </ThemeProvider>
     </CartProvider>
   );
