@@ -585,10 +585,6 @@ export default function StallDashboard() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header Section */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton}>
-          <MaterialIcons name="menu" size={24} color="#999" />
-        </TouchableOpacity>
-
         <View style={styles.headerInfo}>
           <Text style={styles.stallName}>
             {stallName}
