@@ -204,9 +204,9 @@ export default function RestaurantScreen() {
             {paginatedItems.map((item) => (
               <View style={styles.menuCard} key={item.id}>
                 {item.image_data ? (
-                  <Image source={{ uri: item.image_data }} style={styles.menuImage} />
+                  <Image source={{ uri: item.image_data }} style={styles.menuImage} contentFit="cover" />
                 ) : item.image_url ? (
-                  <Image source={{ uri: item.image_url }} style={styles.menuImage} />
+                  <Image source={{ uri: item.image_url }} style={styles.menuImage} contentFit="cover" />
                 ) : (
                   <View style={[styles.menuImage, { backgroundColor: YELLOW_LIGHT, justifyContent: "center", alignItems: "center" }]}>
                     <Text style={{ color: "#999" }}>No Image</Text>
