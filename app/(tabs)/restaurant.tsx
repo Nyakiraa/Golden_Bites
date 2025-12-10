@@ -23,7 +23,7 @@ interface MenuItem {
 export default function RestaurantScreen() {
   const params = useLocalSearchParams()
   const router = useRouter()
-  const { addToCart, toggleFavorite, isFavorited } = useCart()
+  const { addToCart, toggleFavorite, isFavorited, setStallId: setCartStallId } = useCart()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(true)
   const [stallId, setStallId] = useState<string | null>(null)
@@ -33,6 +33,7 @@ export default function RestaurantScreen() {
   const ITEMS_PER_PAGE = 5
   
   const name = Array.isArray(params.name) ? params.name[0] : (params.name ?? "")
+  const passedStallId = Array.isArray(params.id) ? params.id[0] : (params.id ?? null)
   const image = Array.isArray(params.image) ? params.image[0] : (params.image ?? "")
   const tag = Array.isArray(params.tag) ? params.tag[0] : (params.tag ?? "")
   const rating = Array.isArray(params.rating) ? params.rating[0] : (params.rating ?? "")
@@ -50,13 +51,27 @@ export default function RestaurantScreen() {
         return
       }
       
-      // Fetch the stall by the name passed from params
-      const { data: stallData, error: stallError } = await supabase
-        .from("stalls")
-        .select("id")
-        .eq("name", name)
-        .eq("is_active", true)
-        .single()
+      // Use passed stall id if available, otherwise find by name
+      let stallLookupId = passedStallId as string | null
+      let stallData = null as { id: string } | null
+      let stallError = null
+
+      if (stallLookupId) {
+        const { data, error } = await supabase.from("stalls").select("id").eq("id", stallLookupId).eq("is_active", true).single()
+        stallData = data
+        stallError = error
+      } 
+
+      if (!stallData) {
+        const { data, error } = await supabase
+          .from("stalls")
+          .select("id")
+          .eq("name", name)
+          .eq("is_active", true)
+          .single()
+        stallData = data
+        stallError = error
+      }
 
       if (stallError || !stallData) {
         console.error("Error fetching stall:", stallError)
@@ -66,6 +81,7 @@ export default function RestaurantScreen() {
 
       // Store the stall ID
       setStallId(stallData.id)
+      setCartStallId(stallData.id)
 
       // Fetch menu items for this stall
       const { data: foodsData, error: foodsError } = await supabase
@@ -242,6 +258,7 @@ export default function RestaurantScreen() {
                         qty: getQuantity(item.id),
                         image_url: item.image_url ?? undefined,
                         image_data: item.image_data ?? undefined,
+                        stall_id: stallId ?? undefined,
                       })
                       // Reset quantity for this item
                       setQuantities({ ...quantities, [item.id]: 1 })

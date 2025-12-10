@@ -1,5 +1,6 @@
 "use client"
 
+import { useCart } from "@/app/context/CartContext"
 import { IconSymbol } from "@/components/ui/icon-symbol"
 import { supabase } from '@/lib/supabase'
 import { Image } from "expo-image"
@@ -10,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 
 export default function HomeScreen() {
   const router = useRouter()
+  const { selectedLocation, setSelectedLocation } = useCart()
   const ADNU_LOCATIONS = [
     'Engineering Building',
     'SHS Bldg.',
@@ -27,8 +29,8 @@ export default function HomeScreen() {
     'COVERT COURT',
     'JESUIT RESIDENCE',
   ]
-  const [selectedLocation, setSelectedLocation] = useState<string>('ADNU Campus')
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [headerLayout, setHeaderLayout] = useState<{ y: number; height: number } | null>(null)
   const [popularMeals, setPopularMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -70,7 +72,12 @@ export default function HomeScreen() {
     const fetchStalls = async () => {
       try {
         setLoadingRestaurants(true)
-        const { data, error } = await supabase.from('stalls').select('id, name, rating, location').eq('is_active', true).order('name', { ascending: true }).limit(20)
+        // Use public view to avoid auth restrictions while still getting active stalls
+        const { data, error } = await supabase
+          .from('public_stalls')
+          .select('id, name, rating, location')
+          .order('name', { ascending: true })
+          .limit(50)
         if (error) {
           console.warn('Failed to fetch stalls', error)
           if (mounted) setRestaurants([])
@@ -92,7 +99,8 @@ export default function HomeScreen() {
             fee: 15,
             cuisines: [],
             tag: '',
-            image: imageKey ?? 'RC.png',
+            image: null,
+            imageKey: imageKey ?? null,
             location: s.location,
           }
         })
@@ -109,6 +117,11 @@ export default function HomeScreen() {
     fetchStalls()
     return () => { mounted = false }
   }, [])
+  const filteredRestaurants = restaurants.filter((r) => {
+    const q = searchQuery.toLowerCase()
+    return r.name.toLowerCase().includes(q) || (r.location ?? "").toLowerCase().includes(q)
+  })
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header: address + profile */}
@@ -152,7 +165,14 @@ export default function HomeScreen() {
       {/* Search */}
       <View style={styles.searchBar}>
         <IconSymbol name="magnifyingglass" size={18} color="#999" style={styles.searchIcon} />
-        <TextInput placeholder="Search restaurants or food" placeholderTextColor="#BBB" style={styles.searchInput} />
+        <TextInput
+          placeholder="Search restaurants or food"
+          placeholderTextColor="#BBB"
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -175,18 +195,24 @@ export default function HomeScreen() {
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popularList}>
-            {popularMeals.map((m) => (
-              <TouchableOpacity key={m.id} style={styles.popularCard} activeOpacity={0.85}>
-                <Image source={{ uri: m.image }} style={styles.popularImage} />
-                <View style={styles.popularBody}>
-                  <Text style={styles.popularName} numberOfLines={1}>
-                    {m.name}
-                  </Text>
-                  <Text style={styles.popularMeta}>{m.serving}</Text>
-                  <Text style={styles.popularPrice}>₱{m.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {popularMeals.length === 0 ? (
+              <View style={{ paddingHorizontal: 18, paddingVertical: 8 }}>
+                <Text style={{ color: "#777", fontWeight: "600" }}>No popular items</Text>
+              </View>
+            ) : (
+              popularMeals.map((m) => (
+                <TouchableOpacity key={m.id} style={styles.popularCard} activeOpacity={0.85}>
+                  <Image source={{ uri: m.image }} style={styles.popularImage} />
+                  <View style={styles.popularBody}>
+                    <Text style={styles.popularName} numberOfLines={1}>
+                      {m.name}
+                    </Text>
+                    <Text style={styles.popularMeta}>{m.serving}</Text>
+                    <Text style={styles.popularPrice}>₱{m.price}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         )}
 
@@ -201,37 +227,49 @@ export default function HomeScreen() {
               <ActivityIndicator color={YELLOW_DARK} />
             </View>
           ) : (
-            restaurants.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={styles.card}
-                activeOpacity={0.85}
-                onPress={() => router.push({ pathname: "/restaurant", params: r })}
-              >
-                <Image
-                  source={LOCAL_IMAGES[r.image] ?? (typeof r.image === "string" && r.image.startsWith("http") ? { uri: r.image } : undefined)}
-                  style={styles.cardImage}
-                />
-                {r.tag && (
-                  <View style={styles.offerTag}>
-                    <Text style={styles.offerText}>{r.tag}</Text>
+            filteredRestaurants.length === 0 ? (
+              <View style={{ paddingHorizontal: 18, paddingVertical: 10 }}>
+                <Text style={{ color: "#777", fontWeight: "600" }}>No stalls found</Text>
+              </View>
+            ) : (
+              filteredRestaurants.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={styles.card}
+                  activeOpacity={0.85}
+                  onPress={() => router.push({ pathname: "/restaurant", params: r })}
+                >
+                  <Image
+                    source={
+                      (typeof r.image === "string" && r.image.startsWith("http"))
+                        ? { uri: r.image }
+                        : r.imageKey && LOCAL_IMAGES[r.imageKey]
+                          ? LOCAL_IMAGES[r.imageKey]
+                          : LOCAL_IMAGES["RC.png"]
+                    }
+                    style={styles.cardImage}
+                  />
+                  {r.tag && (
+                    <View style={styles.offerTag}>
+                      <Text style={styles.offerText}>{r.tag}</Text>
+                    </View>
+                  )}
+                  <View style={styles.cardBody}>
+                    <Text style={styles.cardTitle}>{r.name}</Text>
+                    <View style={styles.cardMetaRow}>
+                      <Text style={styles.rating}>★ {r.rating.toFixed(1)}</Text>
+                      <Text style={styles.dot}>·</Text>
+                      <Text style={styles.metaText}>{r.time} min</Text>
+                      <Text style={styles.dot}>·</Text>
+                      <Text style={styles.metaText}>₱{r.fee} fee</Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.cuisines}>
+                      {r.cuisines.join(" • ")}
+                    </Text>
                   </View>
-                )}
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{r.name}</Text>
-                  <View style={styles.cardMetaRow}>
-                    <Text style={styles.rating}>★ {r.rating.toFixed(1)}</Text>
-                    <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>{r.time} min</Text>
-                    <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>₱{r.fee} fee</Text>
-                  </View>
-                  <Text numberOfLines={1} style={styles.cuisines}>
-                    {r.cuisines.join(" • ")}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))
+            )
           )}
         </View>
         {/* Button for Cart navigation for demo */}
