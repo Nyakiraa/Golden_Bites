@@ -39,22 +39,22 @@ export default function ProfilePage() {
         return
       }
 
-      // Get user profile from admins table
-      const { data: adminData, error: adminError } = await supabase
-        .from("admins")
-        .select("id, name, phone_number")
-        .eq("user_id", user.id)
+      // Get user profile from users table
+      const { data: userData, error: userDataError } = await supabase
+        .from("users")
+        .select("id, name, phone")
+        .eq("id", user.id)
         .maybeSingle()
 
-      if (adminError) {
-        console.error("Error fetching admin profile:", adminError)
+      if (userDataError) {
+        console.error("Error fetching user profile:", userDataError)
       }
 
       const userProfile: UserProfile = {
         id: user.id,
         email: user.email || "",
-        name: adminData?.name || "",
-        phone_number: adminData?.phone_number || "",
+        name: userData?.name || "",
+        phone_number: userData?.phone || "",
       }
 
       setProfile(userProfile)
@@ -94,14 +94,14 @@ export default function ProfilePage() {
         return
       }
 
-      // Update admin profile
+      // Update user profile
       const { error: updateError } = await supabase
-        .from("admins")
+        .from("users")
         .update({
           name: name.trim(),
-          phone_number: phoneNumber.trim(),
+          phone: phoneNumber.trim(),
         })
-        .eq("user_id", user.id)
+        .eq("id", user.id)
 
       if (updateError) {
         console.error("Error updating profile:", updateError)

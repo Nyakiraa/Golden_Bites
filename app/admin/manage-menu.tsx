@@ -134,7 +134,9 @@ export default function ManageMenuScreen() {
         console.error("Error updating availability:", error)
         Alert.alert("Error", "Failed to update availability")
       } else {
-        fetchFoods()
+        setFoods(foods.map(food => 
+          food.id === item.id ? { ...food, is_available: !food.is_available } : food
+        ))
       }
     } catch (error) {
       console.error("Error in handleToggleAvailability:", error)
