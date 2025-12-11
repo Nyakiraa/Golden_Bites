@@ -87,9 +87,42 @@ export default function HomeScreen() {
         if (!mounted) return
 
         const mapped = (data ?? []).map((s: any) => {
-          // Derive a local image key if the name matches a known asset
-          const nameLower = (s.name || '').toLowerCase()
-          const imageKey = Object.keys(LOCAL_IMAGES).find((k) => nameLower.includes(k.replace('.png', '').replace('_', ' ')))
+          // Map stall names to image keys with proper matching
+          const nameLower = (s.name || '').toLowerCase().trim()
+          
+          // Create a mapping of stall name patterns to image keys
+          const stallImageMap: Record<string, string> = {
+            'bam-bam': 'bambam.png',
+            'bambam': 'bambam.png',
+            'kuya kim': 'kuyakim.png',
+            'kuyakim': 'kuyakim.png',
+            'cocina': 'cocina.png',
+            'noodle house': 'noodle_house.png',
+            'noodlehouse': 'noodle_house.png',
+            'kuya\'s platter': 'kuya_platter.png',
+            'kuyas platter': 'kuya_platter.png',
+            'kuya platter': 'kuya_platter.png',
+            'rc food': 'RC.png',
+            'rcfood': 'RC.png',
+            'rc': 'RC.png',
+            'puting bahay': 'puting_bahay.png',
+            'putingbahay': 'puting_bahay.png',
+            'nomo': 'NOMO.png',
+            'jbi': 'JBI.png',
+            'taptap': 'taptap.png',
+            'flavorful fiesta': 'flavorful_fiesta.png',
+            'flavorfulfiesta': 'flavorful_fiesta.png',
+            'bitebox': 'bitebox.png',
+          }
+          
+          // Find matching image key
+          let imageKey: string | null = null
+          for (const [pattern, key] of Object.entries(stallImageMap)) {
+            if (nameLower.includes(pattern)) {
+              imageKey = key
+              break
+            }
+          }
 
           return {
             id: s.id,
@@ -100,7 +133,7 @@ export default function HomeScreen() {
             cuisines: [],
             tag: '',
             image: null,
-            imageKey: imageKey ?? null,
+            imageKey: imageKey,
             location: s.location,
           }
         })
@@ -202,7 +235,13 @@ export default function HomeScreen() {
             ) : (
               popularMeals.map((m) => (
                 <TouchableOpacity key={m.id} style={styles.popularCard} activeOpacity={0.85}>
-                  <Image source={{ uri: m.image }} style={styles.popularImage} />
+                  {m.image && typeof m.image === 'string' && m.image.trim() !== '' ? (
+                    <Image source={{ uri: m.image }} style={styles.popularImage} />
+                  ) : (
+                    <View style={[styles.popularImage, { backgroundColor: YELLOW_LIGHT, justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ color: '#999', fontSize: 12 }}>No Image</Text>
+                    </View>
+                  )}
                   <View style={styles.popularBody}>
                     <Text style={styles.popularName} numberOfLines={1}>
                       {m.name}
@@ -237,7 +276,10 @@ export default function HomeScreen() {
                   key={r.id}
                   style={styles.card}
                   activeOpacity={0.85}
-                  onPress={() => router.push({ pathname: "/restaurant", params: r })}
+                  onPress={() => router.push({ 
+                    pathname: "/restaurant", 
+                    params: { ...r, image: r.imageKey || r.image || "RC.png" }
+                  })}
                 >
                   <Image
                     source={
@@ -282,6 +324,7 @@ export default function HomeScreen() {
 }
 
 const YELLOW_DARK = "#F2BC2B"
+const YELLOW_LIGHT = "#F8DF86"
 
 const LOCAL_IMAGES: Record<string, any> = {
   "bambam.png": require("@/assets/images/bambam.png"),

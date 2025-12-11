@@ -13,17 +13,17 @@ export interface CartItem {
 interface CartContextType {
   cartItems: CartItem[]
   stallId: string | null
-  selectedLocation: string
   addToCart: (item: CartItem) => void
   removeFromCart: (itemId: string) => void
   updateQuantity: (itemId: string, qty: number) => void
   clearCart: () => void
   getTotalPrice: () => number
   setStallId: (stallId: string) => void
-  setSelectedLocation: (location: string) => void
   favorites: { id: string; name?: string; image_url?: string }[]
   toggleFavorite: (stall: { id: string; name?: string; image_url?: string }) => void
   isFavorited: (stallId: string) => boolean
+  selectedLocation: string
+  setSelectedLocation: (location: string) => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -31,8 +31,8 @@ const CartContext = createContext<CartContextType | undefined>(undefined)
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [stallId, setStallId] = useState<string | null>(null)
-  const [selectedLocation, setSelectedLocation] = useState<string>('ADNU Campus')
   const [favorites, setFavorites] = useState<{ id: string; name?: string; image_url?: string }[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<string>('Engineering Building')
 
   const addToCart = useCallback((item: CartItem) => {
     setCartItems(prevItems => {
@@ -91,17 +91,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       value={{
         cartItems,
         stallId,
-        selectedLocation,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
         getTotalPrice,
         setStallId,
-        setSelectedLocation,
         favorites,
         toggleFavorite,
         isFavorited,
+        selectedLocation,
+        setSelectedLocation,
       }}
     >
       {children}
