@@ -22,6 +22,8 @@ interface CartContextType {
   favorites: { id: string; name?: string; image_url?: string }[]
   toggleFavorite: (stall: { id: string; name?: string; image_url?: string }) => void
   isFavorited: (stallId: string) => boolean
+  selectedLocation: string
+  setSelectedLocation: (location: string) => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -30,6 +32,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [stallId, setStallId] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<{ id: string; name?: string; image_url?: string }[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<string>('Engineering Building')
 
   const addToCart = useCallback((item: CartItem) => {
     setCartItems(prevItems => {
@@ -97,6 +100,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         favorites,
         toggleFavorite,
         isFavorited,
+        selectedLocation,
+        setSelectedLocation,
       }}
     >
       {children}
